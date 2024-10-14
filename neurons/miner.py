@@ -12,7 +12,7 @@ from huggingface_hub import HfApi
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'Salesforce/wikitext', epochs: int = 3, batch_size: int = 4, learning_rate: float = 1e-4, device: str = 'cpu', hf_token: str = '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',central_repo: str = 'Tobius/yogpt_test' ):
+    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'Salesforce/wikitext', epochs: int = 3, batch_size: int = 4, learning_rate: float = 1e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test'):
         super().__init__()
         # Training parameters
         self.model_type = model_type
@@ -39,6 +39,7 @@ class TrainingMiner(BaseMinerNeuron):
         """Initialize and prepare the dataset for training"""
         bt.logging.info(f"Loading dataset: {self.dataset_id}")
         try:
+            # Try to load the dataset without specifying a configuration
             self.dataset = load_dataset(self.dataset_id, split="train", cache_dir="./data", token=self.hf_token)
             bt.logging.info(f"Dataset loaded. Size: {len(self.dataset)}")
             
@@ -47,7 +48,15 @@ class TrainingMiner(BaseMinerNeuron):
             
             # Check if 'text' column exists
             if 'text' not in self.dataset.column_names:
-                raise ValueError("Dataset does not contain a 'text' column")
+                # If 'text' column doesn't exist, try to find a suitable text column
+                text_columns = [col for col in self.dataset.column_names if isinstance(self.dataset[0][col], str)]
+                if text_columns:
+                    text_column = text_columns[0]
+                    bt.logging.info(f"Using '{text_column}' as the text column")
+                    # Rename the column to 'text'
+                    self.dataset = self.dataset.rename_column(text_column, 'text')
+                else:
+                    raise ValueError("Dataset does not contain a suitable text column")
             
             # Tokenize the dataset
             self.tokenized_dataset = self.dataset.map(
