@@ -40,7 +40,7 @@ class TrainingMiner(BaseMinerNeuron):
         bt.logging.info(f"Loading dataset: {self.dataset_id}")
         try:
             # Try to load the dataset without specifying a configuration
-            self.dataset = load_dataset(self.dataset_id, split="train", cache_dir="./data", token=self.hf_token)
+            self.dataset = load_dataset(self.dataset_id, split="train", token=self.hf_token)
             bt.logging.info(f"Dataset loaded. Size: {len(self.dataset)}")
             
             if len(self.dataset) == 0:
