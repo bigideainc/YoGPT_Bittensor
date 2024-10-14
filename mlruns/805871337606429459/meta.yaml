@@ -1,6 +1,0 @@
-artifact_location: file:///media/tobius/Transcend/Jarvis/yogpt_bittensor/mlruns/805871337606429459
-creation_time: 1728388155927
-experiment_id: '805871337606429459'
-last_update_time: 1728388155927
-lifecycle_stage: active
-name: gpt2-finetuning-experiment
