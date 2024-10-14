@@ -10,5 +10,4 @@ transformers
 datasets
 transformers[torch]
 expecttest
-json
 huggingface-hub
