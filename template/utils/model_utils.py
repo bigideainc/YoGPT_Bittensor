@@ -1,6 +1,6 @@
 # model_utils.py
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling
+from transformers import AutoModelForCausalLM, AutoTokenizer, DataCollatorForLanguageModeling, GPT2LMHeadModel,GPT2Tokenizer, Trainer, TrainingArguments
 from typing import List, Dict
 
 class ModelManager:
@@ -12,8 +12,8 @@ class ModelManager:
             model_name (str): Name of the pre-trained model to load
         """
         self.model_name = model_name
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = GPT2Toke.from_pretrained(model_name)
+        self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         
         # Ensure the tokenizer has a padding token
         if self.tokenizer.pad_token is None:
@@ -44,6 +44,10 @@ class ModelManager:
         Returns:
             float: The loss value for this training step
         """
+        if not batch_texts:
+            print("Empty batch_texts received. Skipping training step.")
+            return 0.0  # Return zero loss if batch is empty
+
         # Tokenize the batch
         inputs = self.tokenizer(
             batch_texts,
@@ -58,13 +62,22 @@ class ModelManager:
         
         # Set up labels for causal language modeling
         inputs['labels'] = inputs['input_ids'].clone()
-        
-        # Forward pass
-        self.model.train()
-        outputs = self.model(**inputs)
-        loss = outputs.loss
-        
-        return loss.item()
+
+        try:
+            # Forward pass
+            self.model.train()
+            outputs = self.model(**inputs)
+            loss = outputs.loss
+
+            if torch.isnan(loss):
+                print("Loss is NaN. Skipping step.")
+                return 0.0
+
+            return loss.item()
+
+        except Exception as e:
+            print(f"Error during train_step: {e}")
+            return 0.0
     
     def to(self, device: torch.device):
         """

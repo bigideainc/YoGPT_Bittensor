@@ -1,0 +1,15 @@
+artifact_uri: file:///media/tobius/Transcend/Jarvis/yogpt_bittensor/mlruns/805871337606429459/2e40aef952024f468805ac85fea4d144/artifacts
+end_time: 1728388499570
+entry_point_name: ''
+experiment_id: '805871337606429459'
+lifecycle_stage: active
+run_id: 2e40aef952024f468805ac85fea4d144
+run_name: gpt2-finetuning-run
+run_uuid: 2e40aef952024f468805ac85fea4d144
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1728388157362
+status: 3
+tags: []
+user_id: tobius

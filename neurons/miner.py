@@ -1,136 +1,178 @@
 import time
-import torch
-import bittensor as bt
 import os
+import bittensor as bt
 import asyncio
 import nest_asyncio
-from typing import Tuple, Dict, Any
-from torch.optim import AdamW
-from tqdm import tqdm
-from template.utils.data_utils import DataManager
-from template.utils.model_utils import ModelManager
+from transformers import (DataCollatorForLanguageModeling, GPT2LMHeadModel, GPT2Tokenizer, Trainer, TrainingArguments)
+from datasets import load_dataset
+from typing import Dict, Any, Tuple
 from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
-
-# Apply nest_asyncio to allow asyncio event loops in threads
+from huggingface_hub import HfApi
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(
-        self,
-        config=None,
-        model_type: str = 'gpt2',
-        epochs: int = 3,
-        batch_size: int = 4,
-        learning_rate: float = 1e-4
-    ):
-        super().__init__(config=config)
-        
+    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'carlosejimenez/wikitext__wikitext-2-raw-v1', epochs: int = 3, batch_size: int = 4, learning_rate: float = 1e-4, device: str = 'cpu', hf_token: str = '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'):
+        super().__init__()
         # Training parameters
         self.model_type = model_type
         self.epochs = epochs
         self.batch_size = batch_size
         self.learning_rate = learning_rate
+        self.device = device
+        self.dataset_id = dataset_id
+        self.hf_token = hf_token
+        self.central_repo = central_repo
+        # Initialize GPT-2 model and tokenizer
+        self.tokenizer = GPT2Tokenizer.from_pretrained(self.model_type, pad_token="")
+        self.model = GPT2LMHeadModel.from_pretrained(self.model_type, token=self.hf_token).to(self.device)
+        # Data collator for GPT-2
+        self.data_collator = DataCollatorForLanguageModeling(self.tokenizer, mlm=False)
+        # Initialize dataset
+        self.initialize_dataset()
         
-        # Initialize model manager and move model to the appropriate device
-        self.model_manager = ModelManager(model_type)
-        self.model_manager.to("cpu")
-        
-        # Initialize optimizer
-        self.optimizer = AdamW(
-            self.model_manager.model.parameters(),
-            lr=self.learning_rate
+        # Set up trainer
+        self.setup_trainer()
+        self.hf_api = HfApi(token=self.hf_token)
+
+    def initialize_dataset(self):
+        """Initialize and prepare the dataset for training"""
+        bt.logging.info(f"Loading dataset: {self.dataset_id}")
+        self.dataset = load_dataset(self.dataset_id, split="train", cache_dir="./data", token=self.hf_token)
+        self.tokenized_dataset = self.dataset.map(
+            self.tokenize_function, 
+            batched=True, 
+            remove_columns=self.dataset.column_names
+        )
+        bt.logging.info(f"Dataset prepared. Size: {len(self.tokenized_dataset)}")
+
+    def setup_trainer(self):
+        """Set up the trainer with current parameters"""
+        training_args = TrainingArguments(
+            output_dir='./results',
+            num_train_epochs=self.epochs,
+            per_device_train_batch_size=self.batch_size,
+            learning_rate=self.learning_rate,
+            weight_decay=0.01,
+            logging_dir='./logs',
+            logging_steps=100,
+            report_to="none",
+            fp16=False,
+            save_steps=500,
+            save_total_limit=3,
         )
         
-        # Initialize data manager
-        self.data_manager = DataManager()
-        
-        # Training metrics storage
-        self.training_history: Dict[str, Dict[str, Any]] = {}
-        
-        bt.logging.info(f"Initialized miner with model: {model_type}")
-        bt.logging.info(f"Training parameters: epochs={epochs}, batch_size={batch_size}, learning_rate={learning_rate}")
+        self.trainer = Trainer(
+            model=self.model,
+            args=training_args,
+            train_dataset=self.tokenized_dataset,
+            tokenizer=self.tokenizer,
+            data_collator=self.data_collator
+        )
+
+    def tokenize_function(self, examples):
+        """Tokenizes the input examples using the class's tokenizer."""
+        return self.tokenizer(examples["text"], truncation=True)
 
     async def forward(self, synapse: TrainingProtocol) -> TrainingProtocol:
         """
-        Processes the incoming synapse by performing training steps.
-        
-        Args:
-            synapse (TrainingProtocol): The incoming synapse containing training parameters
-            
-        Returns:
-            TrainingProtocol: The processed synapse containing training results
+        Perform the training steps and update synapse with training results.
         """
         try:
-            # Initialize training history for this run
-            run_id = f"{self.model_type}_{time.strftime('%Y%m%d_%H%M%S')}"
-            self.training_history[run_id] = {
-                'epoch_losses': [],
-                'avg_loss': 0.0,
-                'best_loss': float('inf'),
-                'start_time': time.time()
+            bt.logging.info("Processing training request.")
+
+            # Update training parameters if provided in synapse
+            if synapse.training_params:
+                self.epochs = synapse.training_params.get('epochs', self.epochs)
+                self.batch_size = synapse.training_params.get('batch_size', self.batch_size)
+                self.learning_rate = synapse.training_params.get('learning_rate', self.learning_rate)
+                self.setup_trainer()  # Reinitialize trainer with new parameters
+
+            # Execute training and capture results
+            bt.logging.info("Starting training iteration...")
+            train_start_time = time.time()
+            train_result = self.trainer.train()
+            train_end_time = time.time()
+            
+            # Log final loss
+            final_loss = train_result.training_loss
+            bt.logging.info(f"Training iteration completed. Final loss: {final_loss:.4f}")
+
+            repo_name = f"finetuned-gpt2-{int(time.time())}"
+            repo_url = self.hf_api.create_repo(repo_name, public=True)
+            self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
+
+            metrics = {
+                'total_epochs': self.epochs,
+                'final_loss': final_loss,
+                'training_time': train_end_time - train_start_time,
+                'model_repo': repo_url
             }
-            
-            bt.logging.info(f"Starting training for {self.epochs} epochs...")
-            
-            # Calculate steps per epoch based on dataset size
-            dataset_size = self.data_manager.get_dataset_size()
-            steps_per_epoch = min(100, dataset_size // self.batch_size)
-            
-            for epoch in range(self.epochs):
-                epoch_losses = []
-                progress_bar = tqdm(range(steps_per_epoch), desc=f"Epoch {epoch+1}/{self.epochs}")
+
+            central_commit_url = commit_to_central_repo(
+                self.hf_token,
+                self.central_repo,
+                repo_url,
+                metrics
+            )
+            # Update the synapse response fields
+            synapse.loss = final_loss
+            synapse.model_hash = repo_name
+            synapse.training_metrics = metrics
+            synapse.training_metrics['central_commit_url'] = central_commit_url
+
+            print("Training Results:")
+            print(synapse.training_metrics)
+
+
+        except Exception as e:
+            bt.logging.error(f"Error during training: {str(e)}")
+            synapse.loss = None
+            synapse.model_hash = None
+
+        return synapse
+
+    async def run_training_loop(self):
+        """Continuous training loop"""
+        while True:
+            try:
+                bt.logging.info("Initiating training iteration...")
                 
-                for _ in progress_bar:
-                    # Get batch and perform training step
-                    batch_texts = self.data_manager.get_batch(self.batch_size)
-                    training_params = {'learning_rate': self.learning_rate}
-                    
-                    self.optimizer.zero_grad()
-                    loss = self.model_manager.train_step(batch_texts, training_params)
-                    self.optimizer.step()
-                    
-                    epoch_losses.append(loss)
-                    
-                    # Update progress bar
-                    avg_loss = sum(epoch_losses) / len(epoch_losses)
-                    progress_bar.set_postfix({
-                        'loss': f"{loss:.4f}",
-                        'avg_loss': f"{avg_loss:.4f}"
-                    })
-                
-                # Epoch summary
-                epoch_avg_loss = sum(epoch_losses) / len(epoch_losses)
-                self.training_history[run_id]['epoch_losses'].append(epoch_avg_loss)
-                self.training_history[run_id]['best_loss'] = min(
-                    self.training_history[run_id]['best_loss'],
-                    epoch_avg_loss
+                dummy_synapse = TrainingProtocol(
+                    model_name=self.model_type,
+                    batch_data=[],  # Empty as we're using the pre-loaded dataset
+                    training_params={
+                        'epochs': self.epochs,
+                        'batch_size': self.batch_size,
+                        'learning_rate': self.learning_rate
+                    }
                 )
                 
-                bt.logging.info(f"Epoch {epoch+1} completed - Avg Loss: {epoch_avg_loss:.4f}")
-            
-            # Calculate final metrics
-            training_time = time.time() - self.training_history[run_id]['start_time']
-            final_avg_loss = sum(self.training_history[run_id]['epoch_losses']) / len(self.training_history[run_id]['epoch_losses'])
-            
-            # Fill response
-            synapse.loss = final_avg_loss
-            synapse.model_hash = self.model_manager.get_model_hash()
-            synapse.training_metrics = {
-                'total_epochs': self.epochs,
-                'best_loss': self.training_history[run_id]['best_loss'],
-                'average_loss': final_avg_loss,
-                'training_time_seconds': training_time
-            }
-            
-            bt.logging.info(f"Training completed in {training_time:.2f} seconds")
-            bt.logging.info(f"Final average loss: {final_avg_loss:.4f}")
-            bt.logging.info(f"Best loss achieved: {self.training_history[run_id]['best_loss']:.4f}")
-            
-        except Exception as e:
-            bt.logging.error(f"Error in forward: {str(e)}")
-        
-        return synapse
+                # Run training iteration
+                result_synapse = await self.forward(dummy_synapse)
+                
+                if result_synapse.loss is not None:
+                    bt.logging.info(f"Training iteration completed. Loss: {result_synapse.loss}")
+                    self.save_state()  # Save model state after successful training
+                
+                # Wait for a short period before next iteration
+                await asyncio.sleep(60)  # Adjust as needed
+                
+            except Exception as e:
+                bt.logging.error(f"Error in training loop: {str(e)}")
+                await asyncio.sleep(60)  # Wait before retrying
+
+    def save_state(self):
+        """Save model state"""
+        self.model.save_pretrained("./model_checkpoint")
+        # self.model.save_pretrained("path_to_save", push_to_hub=True, repo_name="my-finetuned-model")
+        bt.logging.info("Model state saved")
+
+    def load_state(self):
+        """Load model state if checkpoint exists"""
+        if os.path.exists("./model_checkpoint"):
+            self.model = GPT2LMHeadModel.from_pretrained("./model_checkpoint").to(self.device)
+            bt.logging.info("Model state loaded from checkpoint")
 
     async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
         """Check if the incoming request should be blacklisted"""
@@ -144,26 +186,25 @@ class TrainingMiner(BaseMinerNeuron):
         priority = float(self.metagraph.S[caller_uid])
         return priority
 
-    def save_state(self):
-        """
-        Save model state if needed.
-        """
-        self.model_manager.save_state("model_checkpoint.pt")
-
-    def load_state(self):
-        """
-        Load model state if checkpoint exists.
-        """
-        self.model_manager.load_state("model_checkpoint.pt")
-
-
 # This is the main function, which runs the miner.
 if __name__ == "__main__":
-    miner = TrainingMiner()
-    try:
-        # Ensure the miner is continuously running
-        while True:
-            bt.logging.info(f"Miner running... {time.time()}")
-            time.sleep(30)
-    except KeyboardInterrupt:
-        bt.logging.info("Miner stopped.")
+    miner = TrainingMiner(
+        model_type='openai-community/gpt2',
+        dataset_id='carlosejimenez/wikitext__wikitext-2-raw-v1',
+        epochs=3,
+        batch_size=4,
+        learning_rate=1e-4,
+        device='cuda',
+        hf_token="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",
+        central_repo="your-username/training-runs" 
+    )
+    
+    async def main():
+        try:
+            # Start the continuous training loop
+            await miner.run_training_loop()
+        except KeyboardInterrupt:
+            bt.logging.info("Miner stopped.")
+
+    # Run the async main function
+    asyncio.run(main())
