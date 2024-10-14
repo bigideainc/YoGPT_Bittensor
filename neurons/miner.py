@@ -224,8 +224,8 @@ if __name__ == "__main__":
     miner = TrainingMiner(
         model_type='openai-community/gpt2',
         dataset_id='iohadrubin/wikitext-103-raw-v1',
-        epochs=3,
-        batch_size=4,
+        epochs=1,
+        batch_size=32,
         learning_rate=1e-4,
         device='cuda',
         hf_token="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",
