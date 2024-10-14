@@ -132,14 +132,15 @@ class TrainingMiner(BaseMinerNeuron):
             bt.logging.info(f"Training iteration completed. Final loss: {final_loss:.4f}")
 
             repo_name = f"finetuned-gpt2-{int(time.time())}"
-            repo_url = self.hf_api.create_repo(repo_name, public=True)
+            repo_url = self.hf_api.create_repo(repo_name, private=True)
             self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
 
             metrics = {
                 'total_epochs': self.epochs,
                 'final_loss': final_loss,
                 'training_time': train_end_time - train_start_time,
-                'model_repo': repo_url
+                'model_repo': repo_url,
+                'uid':61
             }
 
             central_commit_url = commit_to_central_repo(
