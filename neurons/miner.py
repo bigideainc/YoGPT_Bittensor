@@ -96,7 +96,7 @@ class TrainingMiner(BaseMinerNeuron):
 
     def tokenize_function(self, examples):
         """Tokenizes the input examples using the class's tokenizer."""
-        return self.tokenizer(examples["text"], truncation=True)
+        return self.tokenizer(examples["text"], truncation=True,max_length=512)
 
     async def forward(self, synapse: TrainingProtocol) -> TrainingProtocol:
         """
