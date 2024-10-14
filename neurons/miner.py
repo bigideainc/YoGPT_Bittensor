@@ -214,7 +214,7 @@ class TrainingMiner(BaseMinerNeuron):
 if __name__ == "__main__":
     miner = TrainingMiner(
         model_type='openai-community/gpt2',
-        dataset_id='carlosejimenez/wikitext__wikitext-2-raw-v1',
+        dataset_id='Salesforce/wikitext',
         epochs=3,
         batch_size=4,
         learning_rate=1e-4,
