@@ -12,7 +12,7 @@ from huggingface_hub import HfApi
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'bookcorpus/bookcorpus', epochs: int = 3, batch_size: int = 4, learning_rate: float = 1e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test'):
+    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 3, batch_size: int = 4, learning_rate: float = 1e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test'):
         super().__init__()
         # Training parameters
         self.model_type = model_type
@@ -223,7 +223,7 @@ class TrainingMiner(BaseMinerNeuron):
 if __name__ == "__main__":
     miner = TrainingMiner(
         model_type='openai-community/gpt2',
-        dataset_id='bookcorpus/bookcorpus',
+        dataset_id='iohadrubin/wikitext-103-raw-v1',
         epochs=3,
         batch_size=4,
         learning_rate=1e-4,
