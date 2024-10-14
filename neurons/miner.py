@@ -9,6 +9,7 @@ from typing import Dict, Any, Tuple
 from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
 from huggingface_hub import HfApi
+from utils.HFManager import commit_to_central_repo
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
