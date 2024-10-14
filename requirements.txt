@@ -8,3 +8,5 @@ numpy>=1
 setuptools>=68
 transformers
 datasets
+transformers[torch]
+expecttest

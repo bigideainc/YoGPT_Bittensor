@@ -38,13 +38,37 @@ class TrainingMiner(BaseMinerNeuron):
     def initialize_dataset(self):
         """Initialize and prepare the dataset for training"""
         bt.logging.info(f"Loading dataset: {self.dataset_id}")
-        self.dataset = load_dataset(self.dataset_id, split="train", cache_dir="./data", token=self.hf_token)
-        self.tokenized_dataset = self.dataset.map(
-            self.tokenize_function, 
-            batched=True, 
-            remove_columns=self.dataset.column_names
-        )
-        bt.logging.info(f"Dataset prepared. Size: {len(self.tokenized_dataset)}")
+        try:
+            self.dataset = load_dataset(self.dataset_id, split="train", cache_dir="./data", token=self.hf_token)
+            bt.logging.info(f"Dataset loaded. Size: {len(self.dataset)}")
+            
+            if len(self.dataset) == 0:
+                raise ValueError("Dataset is empty")
+            
+            # Check if 'text' column exists
+            if 'text' not in self.dataset.column_names:
+                raise ValueError("Dataset does not contain a 'text' column")
+            
+            # Tokenize the dataset
+            self.tokenized_dataset = self.dataset.map(
+                self.tokenize_function, 
+                batched=True, 
+                remove_columns=self.dataset.column_names
+            )
+            
+            bt.logging.info(f"Dataset prepared. Size: {len(self.tokenized_dataset)}")
+            
+            # Validate tokenized dataset
+            if len(self.tokenized_dataset) == 0:
+                raise ValueError("Tokenized dataset is empty")
+            
+            # Print sample of tokenized data
+            bt.logging.info("Sample of tokenized data:")
+            bt.logging.info(self.tokenized_dataset[0])
+            
+        except Exception as e:
+            bt.logging.error(f"Error initializing dataset: {str(e)}")
+            raise
 
     def setup_trainer(self):
         """Set up the trainer with current parameters"""
