@@ -196,7 +196,7 @@ if __name__ == "__main__":
         learning_rate=1e-4,
         device='cuda',
         hf_token="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",
-        central_repo="your-username/training-runs" 
+        central_repo="Tobius/yogpt_test" 
     )
     
     async def main():
