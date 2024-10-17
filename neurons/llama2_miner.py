@@ -68,7 +68,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         self.model.enable_input_require_grads()
 
     def initialize_dataset(self):
-        self.dataset = load_dataset(self.dataset_id, split="train", use_auth_token=self.hf_token)
+        self.dataset = load_dataset(self.dataset_id, split="train", token=self.hf_token)
         self.train_dataset, self.eval_dataset = self.dataset.train_test_split(test_size=0.1).values()
 
     def setup_trainer(self):

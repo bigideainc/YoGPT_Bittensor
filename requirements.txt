@@ -11,3 +11,6 @@ datasets
 transformers[torch]
 expecttest
 huggingface-hub
+peft
+trl
+bitsandbytes
