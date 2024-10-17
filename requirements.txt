@@ -14,3 +14,4 @@ huggingface-hub
 peft
 trl
 bitsandbytes
+tensorboard

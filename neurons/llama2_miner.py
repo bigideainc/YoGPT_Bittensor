@@ -75,10 +75,10 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         def find_all_linear_names(model):
             lora_module_names = set()
             for name, module in model.named_modules():
-                if isinstance(module, torch.nn.Linear):
+                if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d)):
                     names = name.split('.')
                     lora_module_names.add(names[0] if len(names) == 1 else names[-1])
-            if 'lm_head' in lora_module_names:
+            if 'lm_head' in lora_module_names:  # Conventionally, we don't train the lm_head
                 lora_module_names.remove('lm_head')
             return list(lora_module_names)
 
@@ -110,7 +110,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
             save_steps=50,
             save_total_limit=3,
             load_best_model_at_end=True,
-            report_to="tensorboard"  # Changed from "wandb" to "tensorboard"
+            report_to="tensorboard"
         )
 
         data_collator = DataCollatorForSeq2Seq(
