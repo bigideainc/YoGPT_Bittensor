@@ -178,7 +178,7 @@ if __name__ == "__main__":
     )
     
     async def main():
-        try:s
+        try:
             await miner.run_training_loop()
         except KeyboardInterrupt:
             bt.logging.info("Miner stopped.")
