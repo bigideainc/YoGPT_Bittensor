@@ -3,30 +3,25 @@ import os
 import bittensor as bt
 import asyncio
 import nest_asyncio
-from transformers import (AutoTokenizer, AutoModelForCausalLM, TrainingArguments, 
-                          BitsAndBytesConfig, DataCollatorForSeq2Seq)
+import torch
+import shutil
+import datetime
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, BitsAndBytesConfig
 from datasets import load_dataset
+from trl import SFTTrainer
+from peft import LoraConfig, get_peft_model
 from typing import Tuple
 from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
 from huggingface_hub import HfApi, login
-from peft import LoraConfig, TaskType, get_peft_model
-from trl import SFTTrainer
-import torch
 from utils.HFManager import commit_to_central_repo
 
 nest_asyncio.apply()
 
-class Llama2TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_name: str = 'NousResearch/Llama-2-7b-chat-hf', 
-                 dataset_id: str = 'mlabonne/guanaco-llama2-1k', 
-                 epochs: int = 1, batch_size: int = 2, 
-                 learning_rate: float = 2e-5, 
-                 device: str = 'cuda', 
-                 hf_token: str = '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', 
-                 central_repo: str = 'Tobius/yogpt_test'):
+class GemmaFineTuningMiner(BaseMinerNeuron):
+    def __init__(self, base_model: str = 'google/gemma-2b', dataset_id: str = 'Abirate/english_quotes', epochs: int = 3, batch_size: int = 4, learning_rate: float = 2e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test'):
         super().__init__()
-        self.model_name = model_name
+        self.base_model = base_model
         self.dataset_id = dataset_id
         self.epochs = epochs
         self.batch_size = batch_size
@@ -34,92 +29,59 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         self.device = device
         self.hf_token = hf_token
         self.central_repo = central_repo
-        login(self.hf_token)
-        self.initialize_model_and_tokenizer()
+        self.tokenizer = AutoTokenizer.from_pretrained(self.base_model, trust_remote_code=True)
+        self.model = self.initialize_model()
+        self.data_collator = None  # Placeholder if you need to define a data collator
         self.initialize_dataset()
         self.setup_trainer()
         self.hf_api = HfApi(token=self.hf_token)
 
-    def initialize_model_and_tokenizer(self):
-        bnb_config = BitsAndBytesConfig(
+    def initialize_model(self):
+        # Load LoRA configuration for 4-bit precision
+        lora_config = BitsAndBytesConfig(
             load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_compute_dtype=torch.bfloat16
         )
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.model_name, use_auth_token=self.hf_token, trust_remote_code=True
-        )
-        self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.tokenizer.padding_side = "right"
-
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            quantization_config=bnb_config,
-            use_auth_token=self.hf_token,
-            trust_remote_code=True,
-            device_map='auto'
-        )
-        self.model.config.use_cache = False
-        self.model.config.pretraining_tp = 1
-
-        self.model.gradient_checkpointing_enable()
-        self.model.enable_input_require_grads()
+        # Load the model and apply LoRA configuration for fine-tuning
+        model = AutoModelForCausalLM.from_pretrained(self.base_model, quantization_config=lora_config, trust_remote_code=True).to(self.device)
+        peft_config = LoraConfig(task_type="CAUSAL_LM", r=4, lora_alpha=16, lora_dropout=0.01)
+        return get_peft_model(model, peft_config)
 
     def initialize_dataset(self):
-        def tokenize_function(examples):
-            inputs = examples['text']
-            model_inputs = self.tokenizer(inputs, padding="max_length", truncation=True, max_length=512)
-            # Set up labels for language modeling
-            model_inputs["labels"] = model_inputs["input_ids"].copy()  
-            return model_inputs
+        try:
+            # Load dataset and tokenize
+            dataset = load_dataset(self.dataset_id, split="train", token=self.hf_token, trust_remote_code=True)
+            self.tokenized_dataset = dataset.map(self.tokenize_function, batched=True)
+        except Exception as e:
+            bt.logging.error(f"Error initializing dataset: {str(e)}")
+            raise
 
-        self.dataset = load_dataset(self.dataset_id, split="train", token=self.hf_token)
-        self.dataset = self.dataset.map(tokenize_function, batched=True)
-        self.train_dataset, self.eval_dataset = self.dataset.train_test_split(test_size=0.1).values()
+    def tokenize_function(self, examples):
+        return self.tokenizer(examples["quote"], padding="max_length", truncation=True)
 
     def setup_trainer(self):
-        peft_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM,
-            r=64,
-            lora_alpha=16,
-            bias="none",
-            lora_dropout=0.1,
-        )
-
-        self.model = get_peft_model(self.model, peft_config)
-
         training_args = TrainingArguments(
-            output_dir="./results",
-            per_device_train_batch_size=self.batch_size,
-            gradient_accumulation_steps=16,
-            learning_rate=self.learning_rate,
+            output_dir='./fine-tuned_model',
             num_train_epochs=self.epochs,
+            per_device_train_batch_size=self.batch_size,
+            gradient_accumulation_steps=4,
+            learning_rate=self.learning_rate,
+            weight_decay=0.01,
+            logging_dir='./logs',
+            logging_steps=100,
+            save_steps=1000,
+            save_total_limit=2,
             fp16=True,
-            logging_steps=10,
-            optim="paged_adamw_32bit",
-            evaluation_strategy="steps",
-            save_strategy="steps",
-            eval_steps=50,
-            save_steps=50,
-            save_total_limit=3,
-            load_best_model_at_end=True,
-            report_to="tensorboard"
-        )
-
-        data_collator = DataCollatorForSeq2Seq(
-            self.tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True, 
-            label_pad_token_id=self.tokenizer.pad_token_id  # Ensure label padding is correct
+            optim="paged_adamw_8bit",
         )
 
         self.trainer = SFTTrainer(
             model=self.model,
-            train_dataset=self.train_dataset,
-            eval_dataset=self.eval_dataset,
-            tokenizer=self.tokenizer,
             args=training_args,
-            data_collator=data_collator,
+            train_dataset=self.tokenized_dataset,
+            tokenizer=self.tokenizer
         )
 
     async def forward(self, synapse: TrainingProtocol) -> TrainingProtocol:
@@ -135,7 +97,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
             train_end_time = time.time()
 
             final_loss = train_result.training_loss
-            repo_name = f"finetuned-llama2-{int(time.time())}"
+            repo_name = f"{self.base_model.split('/')[-1]}-finetuned-{int(time.time())}"
             repo_url = self.hf_api.create_repo(repo_name, private=True)
             self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
 
@@ -171,7 +133,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         while True:
             try:
                 dummy_synapse = TrainingProtocol(
-                    model_name=self.model_name,
+                    model_name=self.base_model,
                     batch_data=[],
                     training_params={
                         'epochs': self.epochs,
@@ -196,9 +158,9 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
     def load_state(self):
         if os.path.exists("./model_checkpoint"):
-            self.model = AutoModelForCausalLM.from_pretrained("./model_checkpoint", device_map='auto')
+            self.model = AutoModelForCausalLM.from_pretrained("./model_checkpoint").to(self.device)
 
-     async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
+    async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
         return (synapse.dendrite.hotkey not in self.metagraph.hotkeys, 
                 "Unrecognized hotkey" if synapse.dendrite.hotkey not in self.metagraph.hotkeys else "Hotkey recognized!")
 
@@ -207,15 +169,15 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         return float(self.metagraph.S[caller_uid])
 
 if __name__ == "__main__":
-    miner = Llama2TrainingMiner(
-        model_name='NousResearch/Llama-2-7b-chat-hf',
-        dataset_id='mlabonne/guanaco-llama2-1k',
-        epochs=1,
-        batch_size=2,
-        learning_rate=2e-5,
+    miner = GemmaFineTuningMiner(
+        base_model='google/gemma-2b',  # Using google/gemma-2b model
+        dataset_id='Abirate/english_quotes',  # Dataset for training
+        epochs=3,  # Set epochs to 3 for demonstration
+        batch_size=4,  # Batch size
+        learning_rate=2e-4,
         device='cuda',
-        hf_token="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",
-        central_repo="Tobius/yogpt_test",
+        hf_token="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",  # Hugging Face token
+        central_repo="Tobius/yogpt_test"  # Central repository for tracking
     )
     
     async def main():
