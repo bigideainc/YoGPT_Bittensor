@@ -200,7 +200,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
     async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
         return (synapse.dendrite.hotkey not in self.metagraph.hotkeys, 
-                "Unrecognized hotkey" if synapse.dendrite.hotkey not in the metagraph.hotkeys else "Hotkey recognized!")
+                "Unrecognized hotkey" if synapse.dendrite.hotkey not in self.metagraph.hotkeys else "Hotkey recognized!")
 
     async def priority(self, synapse: TrainingProtocol) -> float:
         caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
