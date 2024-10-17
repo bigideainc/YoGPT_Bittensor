@@ -14,7 +14,7 @@ class TrainingProtocol(bt.Synapse):
 
     # Response fields
     loss: Optional[float] = None 
-    model_hash: Optional[str] = None  l
+    model_hash: Optional[str] = None
     training_metrics: Optional[Dict[str, float]] = {}
 
     def deserialize(self) -> 'TrainingProtocol':
