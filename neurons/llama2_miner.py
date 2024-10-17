@@ -72,25 +72,12 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         self.train_dataset, self.eval_dataset = self.dataset.train_test_split(test_size=0.1).values()
 
     def setup_trainer(self):
-        def find_all_linear_names(model):
-            lora_module_names = set()
-            for name, module in model.named_modules():
-                if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d)):
-                    names = name.split('.')
-                    lora_module_names.add(names[0] if len(names) == 1 else names[-1])
-                elif isinstance(module, torch.nn.Identity):
-                    # Skip Identity layers
-                    continue
-            if 'lm_head' in lora_module_names:  # Conventionally, we don't train the lm_head
-                lora_module_names.remove('lm_head')
-            return list(lora_module_names)
-
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
-            inference_mode=False,
-            r=8,
-            lora_alpha=32,
-            target_modules=lora_modules
+            r=64,
+            lora_alpha=16,
+            bias="none",
+            lora_dropout=0.1,
         )
 
         self.model = get_peft_model(self.model, peft_config)
@@ -98,12 +85,12 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         training_args = TrainingArguments(
             output_dir="./results",
             per_device_train_batch_size=self.batch_size,
-            gradient_accumulation_steps=4,
+            gradient_accumulation_steps=16,
             learning_rate=self.learning_rate,
             num_train_epochs=self.epochs,
             fp16=True,
             logging_steps=10,
-            optim="paged_adamw_8bit",
+            optim="paged_adamw_32bit",
             evaluation_strategy="steps",
             save_strategy="steps",
             eval_steps=50,
