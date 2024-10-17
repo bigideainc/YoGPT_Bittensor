@@ -97,7 +97,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
         training_args = TrainingArguments(
             output_dir="./results",
-            per_device_train_batch_size=self.batch_size,
+            per_device_train_batch_size=int(self.batch_size),
             gradient_accumulation_steps=16,
             learning_rate=self.learning_rate,
             num_train_epochs=self.epochs,
@@ -131,7 +131,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         try:
             if synapse.training_params:
                 self.epochs = synapse.training_params.get('epochs', self.epochs)
-                self.batch_size = synapse.training_params.get('batch_size', self.batch_size)
+                self.batch_size = int(synapse.training_params.get('batch_size', self.batch_size))
                 self.learning_rate = synapse.training_params.get('learning_rate', self.learning_rate)
                 self.setup_trainer()
 
