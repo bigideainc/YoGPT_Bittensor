@@ -10,11 +10,12 @@ from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
 from huggingface_hub import HfApi
 from utils.HFManager import commit_to_central_repo
+import uuid
 
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test'):
+    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
         super().__init__()
         self.model_type = model_type
         self.epochs = epochs
@@ -24,7 +25,7 @@ class TrainingMiner(BaseMinerNeuron):
         self.dataset_id = dataset_id
         self.hf_token = hf_token
         self.central_repo = central_repo
-        
+        self.job_id=job_id
         self.tokenizer = GPT2Tokenizer.from_pretrained(self.model_type, pad_token="")
         self.model = GPT2LMHeadModel.from_pretrained(self.model_type, token=self.hf_token).to(self.device)
         self.data_collator = DataCollatorForLanguageModeling(self.tokenizer, mlm=False)
@@ -91,7 +92,7 @@ class TrainingMiner(BaseMinerNeuron):
             train_end_time = time.time()
             
             final_loss = train_result.training_loss
-            repo_name = f"finetuned-gpt2-{int(time.time())}"
+            repo_name = f"finetuned-gpt2-{self.job_id}-{int(time.time())}"
             repo_url = self.hf_api.create_repo(repo_name, private=True)
             self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
 
@@ -100,7 +101,8 @@ class TrainingMiner(BaseMinerNeuron):
                 'total_epochs': self.epochs,
                 'final_loss': final_loss,
                 'training_time': train_end_time - train_start_time,
-                'model_repo': repo_url
+                'model_repo': repo_url,
+                'job_id':self.job_id
             }
 
             central_commit_url = commit_to_central_repo(
@@ -120,7 +122,7 @@ class TrainingMiner(BaseMinerNeuron):
             bt.logging.error(f"Error during training: {str(e)}")
             synapse.loss = None
             synapse.model_hash = None
-
+            synapse.training_metrics = {} 
         return synapse
 
     async def run_training_loop(self):
@@ -169,13 +171,14 @@ if __name__ == "__main__":
         epochs=1,
         batch_size=16,
         learning_rate=5e-5,
-        device='cuda',
+        device='cuda',      
         hf_token="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",
-        central_repo="Tobius/yogpt_test" 
+        central_repo="Tobius/yogpt_test",
+        job_id=str(uuid.uuid4()),
     )
     
     async def main():
-        try:
+        try:s
             await miner.run_training_loop()
         except KeyboardInterrupt:
             bt.logging.info("Miner stopped.")

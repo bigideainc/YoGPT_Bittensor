@@ -11,7 +11,6 @@ from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, setup_chat_format
 from typing import Tuple
 from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
-from yogpt_subnet.miner.models.storage.hugging_face_store import HuggingFaceModelStore
 from huggingface_hub import HfApi, login
 from utils.HFManager import commit_to_central_repo
 
@@ -129,8 +128,9 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
             train_loss = train_result.training_loss
 
             # Upload to Hugging Face
-            store = HuggingFaceModelStore()
-            repo_url = store.upload_model(self.model, self.tokenizer, self.job_id)
+            repo_name = f"openelm-{int(time.time())}"
+            repo_url = self.hf_api.create_repo(repo_name, private=True)
+            self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
 
             # Collect metrics
             metrics = {
@@ -138,7 +138,8 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
                 'train_loss': train_loss,
                 'final_loss': final_loss,
                 'training_time': train_end_time - train_start_time,
-                'model_repo': repo_url
+                'model_repo': repo_url,
+                'job_id':self.job_id
             }
 
             miner_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
@@ -160,7 +161,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
             bt.logging.error(f"Error during training: {str(e)}")
             synapse.loss = None
             synapse.model_hash = None
-
+            synapse.training_metrics = {} 
         return synapse
 
     async def run_training_loop(self):

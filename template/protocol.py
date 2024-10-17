@@ -8,16 +8,14 @@ class TrainingProtocol(bt.Synapse):
     This class encapsulates the necessary parameters and response fields 
     for managing training requests and responses.
     """
-    
-    # Required request fields
-    model_name: str  # Name of the model (e.g., 'gpt2', 'llama2')
-    batch_data: List[str]  # Training data batch
-    training_params: Dict[str, Optional[float]]  # Hyperparameters for training
+    model_name: str 
+    batch_data: List[str]  
+    training_params: Dict[str, Optional[float]]  
 
     # Response fields
-    loss: Optional[float] = None  # Final loss after training
-    model_hash: Optional[str] = None  # Hash of the trained model
-    training_metrics: Optional[Dict[str, float]] = None  # Metrics related to training
+    loss: Optional[float] = None 
+    model_hash: Optional[str] = None  l
+    training_metrics: Optional[Dict[str, float]] = {}
 
     def deserialize(self) -> 'TrainingProtocol':
         """Deserialize incoming request and return an instance of TrainingProtocol.
