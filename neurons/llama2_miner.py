@@ -22,17 +22,18 @@ class Llama2TrainingMiner(BaseMinerNeuron):
     def __init__(self, model_name: str = 'NousResearch/Llama-2-7b-chat-hf', 
                  dataset_id: str = 'mlabonne/guanaco-llama2-1k', 
                  epochs: int = 1, 
-                 batch_size: int = 8, 
+                 batch_size: int = 8,
                  learning_rate: float = 2e-5, 
                  device: str = 'cuda', 
                  hf_token: str = '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', 
+                 central_repo: str = 'Tobius/yogpt_test'
                  job_id: str = str(uuid.uuid4()),
-                 central_repo: str = 'Tobius/yogpt_test'):
+                 ):
         super().__init__()
         self.model_name = model_name
         self.dataset_id = dataset_id
         self.epochs = epochs
-        self.batch_size = batch_size
+        self.batch_size = int(batch_size)
         self.learning_rate = learning_rate
         self.device = device
         self.hf_token = hf_token
@@ -168,7 +169,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         except Exception as e:
             bt.logging.error(f"Error during training: {str(e)}")
             synapse.loss = None
-            # synapse.model_hash = None
+            synapse.model_hash = None
             # synapse.training_metrics = {} 
         return synapse
 
