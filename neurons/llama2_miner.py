@@ -78,6 +78,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
             lora_alpha=16,
             bias="none",
             lora_dropout=0.1,
+            inference_mode=False,
         )
 
         self.model = get_peft_model(self.model, peft_config)
