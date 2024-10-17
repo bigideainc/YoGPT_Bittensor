@@ -26,7 +26,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
                  learning_rate: float = 2e-5, 
                  device: str = 'cuda', 
                  hf_token: str = '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', 
-                 central_repo: str = 'Tobius/yogpt_test'
+                 central_repo: str = 'Tobius/yogpt_test',
                  job_id: str = str(uuid.uuid4()),
                  ):
         super().__init__()

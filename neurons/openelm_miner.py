@@ -30,7 +30,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
         self.base_model = base_model
         self.dataset_id = dataset_id
         self.epochs = epochs
-        self.batch_size = batch_size
+        self.batch_size = int(batch_size)
         self.learning_rate = learning_rate
         self.device = device
         self.hf_token = hf_token

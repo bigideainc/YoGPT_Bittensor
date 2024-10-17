@@ -19,7 +19,7 @@ class TrainingMiner(BaseMinerNeuron):
         super().__init__()
         self.model_type = model_type
         self.epochs = epochs
-        self.batch_size = batch_size
+        self.batch_size = int(batch_size)
         self.learning_rate = learning_rate
         self.device = device
         self.dataset_id = dataset_id
