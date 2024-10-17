@@ -67,7 +67,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
 
     def initialize_dataset(self):
         # Load dataset g-ronimo/oasst2_top4k_en
-        self.dataset = load_dataset(self.dataset_id, use_auth_token=self.hf_token)
+        self.dataset = load_dataset(self.dataset_id, token=self.hf_token)
         self.train_dataset, self.eval_dataset = self.dataset['train'], self.dataset['test']
 
     def setup_trainer(self):
