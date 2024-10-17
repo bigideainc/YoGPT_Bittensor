@@ -161,14 +161,14 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
             synapse.loss = final_loss
             synapse.model_hash = repo_name
-            synapse.training_metrics = metrics
-            synapse.training_metrics['central_commit_url'] = central_commit_url
+            # synapse.training_metrics = metrics
+            # synapse.training_metrics['central_commit_url'] = central_commit_url
 
         except Exception as e:
             bt.logging.error(f"Error during training: {str(e)}")
             synapse.loss = None
-            synapse.model_hash = None
-            synapse.training_metrics = {} 
+            # synapse.model_hash = None
+            # synapse.training_metrics = {} 
         return synapse
 
     async def run_training_loop(self):
