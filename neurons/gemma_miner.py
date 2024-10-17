@@ -177,7 +177,7 @@ if __name__ == "__main__":
         learning_rate=2e-4,
         device='cuda',
         hf_token="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", 
-        central_repo="Tobius/yogpt_test"  
+        central_repo="Tobius/yogpt_test",  
         job_id=str(uuid.uuid4()),
     )
     
