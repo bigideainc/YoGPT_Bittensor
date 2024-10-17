@@ -108,7 +108,6 @@ class Llama2TrainingMiner(BaseMinerNeuron):
             save_strategy="steps",
             eval_steps=50,
             save_steps=50,
-            output_dir="./results",
             save_total_limit=3,
             load_best_model_at_end=True,
             report_to="tensorboard"  # Changed from "wandb" to "tensorboard"
