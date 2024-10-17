@@ -68,7 +68,15 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         self.model.enable_input_require_grads()
 
     def initialize_dataset(self):
+        def tokenize_function(examples):
+            inputs = examples['text']
+            model_inputs = self.tokenizer(inputs, padding="max_length", truncation=True, max_length=512)
+            # Set up labels for language modeling
+            model_inputs["labels"] = model_inputs["input_ids"].copy()  
+            return model_inputs
+
         self.dataset = load_dataset(self.dataset_id, split="train", token=self.hf_token)
+        self.dataset = self.dataset.map(tokenize_function, batched=True)
         self.train_dataset, self.eval_dataset = self.dataset.train_test_split(test_size=0.1).values()
 
     def setup_trainer(self):
@@ -78,7 +86,6 @@ class Llama2TrainingMiner(BaseMinerNeuron):
             lora_alpha=16,
             bias="none",
             lora_dropout=0.1,
-            inference_mode=False,
         )
 
         self.model = get_peft_model(self.model, peft_config)
@@ -102,16 +109,14 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         )
 
         data_collator = DataCollatorForSeq2Seq(
-            self.tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            self.tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True, 
+            label_pad_token_id=self.tokenizer.pad_token_id  # Ensure label padding is correct
         )
 
         self.trainer = SFTTrainer(
             model=self.model,
             train_dataset=self.train_dataset,
             eval_dataset=self.eval_dataset,
-            peft_config=peft_config,
-            dataset_text_field="text",
-            max_seq_length=512,
             tokenizer=self.tokenizer,
             args=training_args,
             data_collator=data_collator,
@@ -195,7 +200,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
     async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
         return (synapse.dendrite.hotkey not in self.metagraph.hotkeys, 
-                "Unrecognized hotkey" if synapse.dendrite.hotkey not in self.metagraph.hotkeys else "Hotkey recognized!")
+                "Unrecognized hotkey" if synapse.dendrite.hotkey not in the metagraph.hotkeys else "Hotkey recognized!")
 
     async def priority(self, synapse: TrainingProtocol) -> float:
         caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
