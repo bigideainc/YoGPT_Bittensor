@@ -78,12 +78,12 @@ class Llama2TrainingMiner(BaseMinerNeuron):
                 if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d)):
                     names = name.split('.')
                     lora_module_names.add(names[0] if len(names) == 1 else names[-1])
-            # Ensure 'lm_head' is excluded
-            if 'lm_head' in lora_module_names:
+                elif isinstance(module, torch.nn.Identity):
+                    # Skip Identity layers
+                    continue
+            if 'lm_head' in lora_module_names:  # Conventionally, we don't train the lm_head
                 lora_module_names.remove('lm_head')
             return list(lora_module_names)
-
-        lora_modules = find_all_linear_names(self.model)
 
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
