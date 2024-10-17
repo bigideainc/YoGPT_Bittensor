@@ -21,7 +21,8 @@ nest_asyncio.apply()
 class Llama2TrainingMiner(BaseMinerNeuron):
     def __init__(self, model_name: str = 'NousResearch/Llama-2-7b-chat-hf', 
                  dataset_id: str = 'mlabonne/guanaco-llama2-1k', 
-                 epochs: int = 1, batch_size: int = 2, 
+                 epochs: int = 1, 
+                 batch_size: int = 8, 
                  learning_rate: float = 2e-5, 
                  device: str = 'cuda', 
                  hf_token: str = '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', 
@@ -215,7 +216,7 @@ if __name__ == "__main__":
         model_name='NousResearch/Llama-2-7b-chat-hf',
         dataset_id='mlabonne/guanaco-llama2-1k',
         epochs=1,
-        batch_size=2,
+        batch_size=8,
         learning_rate=2e-5,
         device='cuda',
         hf_token="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",
