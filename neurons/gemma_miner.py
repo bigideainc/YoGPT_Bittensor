@@ -90,7 +90,7 @@ class GemmaFineTuningMiner(BaseMinerNeuron):
         try:
             if synapse.training_params:
                 self.epochs = synapse.training_params.get('epochs', self.epochs)
-                self.batch_size = synapse.training_params.get('batch_size', self.batch_size)
+                self.batch_size = int(synapse.training_params.get('batch_size', self.batch_size))
                 self.learning_rate = synapse.training_params.get('learning_rate', self.learning_rate)
                 self.setup_trainer()
 
