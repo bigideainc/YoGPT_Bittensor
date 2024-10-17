@@ -89,7 +89,6 @@ class Llama2TrainingMiner(BaseMinerNeuron):
             inference_mode=False,
             r=8,
             lora_alpha=32,
-            lora_dropout=0.1,
             target_modules=lora_modules
         )
 
