@@ -202,7 +202,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         if os.path.exists("./model_checkpoint"):
             self.model = AutoModelForCausalLM.from_pretrained("./model_checkpoint", device_map='auto')
 
-     async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
+    async def blacklist(self, synapse: TrainingProtocol) -> Tuple[bool, str]:
         return (synapse.dendrite.hotkey not in self.metagraph.hotkeys, 
                 "Unrecognized hotkey" if synapse.dendrite.hotkey not in self.metagraph.hotkeys else "Hotkey recognized!")
 
