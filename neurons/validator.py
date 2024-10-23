@@ -5,6 +5,7 @@ import torch
 import bittensor as bt
 from template.base.validator import BaseValidatorNeuron
 from template.protocol import TrainingProtocol
+import asyncio
 
 class TrainingValidator(BaseValidatorNeuron):
     def __init__(self, config=None, central_repo: str = "Tobius/yogpt_test"):
@@ -71,15 +72,31 @@ class TrainingValidator(BaseValidatorNeuron):
     async def forward(self):
         """Main execution method."""
         try:
-            commits = self.fetch_commits()
+            commits = self.read_commits() 
             job_groups = self.group_commits_by_job(commits)
             self.evaluate_jobs(job_groups)
         except Exception as e:
             bt.logging.error(f"Error in forward: {str(e)}")
 
+    async def __aenter__(self):
+        # Perform any setup needed when entering the context
+        await self.setup()  # Assuming you have a setup method
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        # Perform any cleanup needed when exiting the context
+        await self.cleanup()  # Assuming you have a cleanup method
+
+    async def setup(self):
+        # Initialization logic here
+        pass
+
+    async def cleanup(self):
+        # Cleanup logic here
+        pass
+
 # Main execution
 if __name__ == "__main__":
-    import asyncio  # Import asyncio to run the async function
     async def main():
         async with TrainingValidator() as validator:
             while True:
