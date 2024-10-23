@@ -5,6 +5,7 @@ import torch
 import bittensor as bt
 from template.base.validator import BaseValidatorNeuron
 from template.protocol import TrainingProtocol
+import asyncio
 
 class TrainingValidator(BaseValidatorNeuron):
     def __init__(self, config=None, central_repo: str = "Tobius/yogpt_test"):
@@ -12,87 +13,95 @@ class TrainingValidator(BaseValidatorNeuron):
         
         self.central_repo = central_repo  # Central repository URL
 
-    def fetch_commits(self):
-        """Fetch commits from the central repository."""
-        try:
-            # Replace with the actual API endpoint or method to retrieve commits.
-            response = requests.get(f"https://api.example.com/repos/{self.central_repo}/commits")
-            response.raise_for_status()  # Raise an error for bad responses
-            return response.json()  # Assuming the response is in JSON format
+    def read_commits(self):
+        """Read commits from the central repository."""
+        # Implementation to read commits from the repository
+        commits = self.fetch_commits_from_repository()
+        return commits
 
-        except Exception as e:
-            bt.logging.error(f"Error fetching commits: {str(e)}")
-            return []
-
-    def extract_unique_job_ids(self, commits):
-        """Extract unique job_ids from the list of commits."""
-        job_ids = set()
-        
+    def group_commits(self, commits):
+        """Group commits by job."""
+        job_groups = {}
         for commit in commits:
             job_id = commit.get("metrics", {}).get("job_id")
-            if job_id:
-                job_ids.add(job_id)
-        
-        return list(job_ids)
+            if job_id not in job_groups:
+                job_groups[job_id] = []
+            job_groups[job_id].append(commit)
+        return job_groups
 
-    def extract_metrics_by_job_id(self, commits, job_id):
-        """Extract metrics for the given job_id from the commits."""
-        metrics_list = []
-        
-        for commit in commits:
-            if commit.get("metrics") and commit["metrics"].get("job_id") == job_id:
-                metrics_list.append({
-                    "final_loss": commit["metrics"]["final_loss"],
-                    "miner_uid": commit["miner_uid"],
-                    "model_repo": commit["model_repo"]
-                })
+    def load_and_evaluate(self, job_groups):
+        """Load and evaluate each job."""
+        for job_id, commits in job_groups.items():
+            metrics_list = self.extract_metrics_by_job_id(commits, job_id)
+            if metrics_list:
+                self.score_miners(metrics_list, job_id)
+                self.mark_job_as_done(job_id)
 
-        return metrics_list
+    def verify_losses(self, metrics_list):
+        """Assess and verify the losses for each task."""
+        # Implementation to verify losses
+        for metric in metrics_list:
+            if not self.is_loss_verified(metric):
+                continue  # Skip if loss is not verified
+            self.update_scores(torch.tensor([1.0]), [metric["miner_uid"]])
 
-    def score_miners(self, metrics_list, job_id):
-        """Score miners based on the lowest loss for a specific job_id."""
-        if not metrics_list:
-            bt.logging.info(f"No miners to score for job_id {job_id}.")
-            return
+    def reward_best_miner(self, job_id):
+        """Reward the miner with the best performance for each job."""
+        metrics_list = self.get_metrics_for_job(job_id)
+        if metrics_list:
+            lowest_loss_commit = min(metrics_list, key=lambda x: x["final_loss"])
+            self.update_scores(torch.tensor([1.0]), [lowest_loss_commit["miner_uid"]])
 
-        # Sort metrics by final_loss and get the miner with the lowest loss
-        lowest_loss_commit = min(metrics_list, key=lambda x: x["final_loss"])
-        bt.logging.info(f"Scoring miner {lowest_loss_commit['miner_uid']} with loss {lowest_loss_commit['final_loss']} for job_id {job_id}")
+    def mark_job_as_done(self, job_id):
+        """Mark the evaluated job as complete."""
+        # Implementation to mark the job as done
+        self.update_job_status(job_id, status="done")
 
-        # Update scores for the miner with the lowest loss
-        self.update_scores(torch.tensor([1.0]), [lowest_loss_commit["miner_uid"]])
+    def filter_jobs(self, job_groups):
+        """Filter and process only unscored jobs."""
+        unscored_jobs = {job_id: commits for job_id, commits in job_groups.items() if not self.is_job_scored(job_id)}
+        return unscored_jobs
+
+    def evaluate_jobs(self):
+        """Main method to evaluate jobs."""
+        commits = self.read_commits()
+        job_groups = self.group_commits(commits)
+        unscored_jobs = self.filter_jobs(job_groups)
+        self.load_and_evaluate(unscored_jobs)
 
     async def forward(self):
-        """Query miners for training and evaluate their performance."""
+        """Main execution method."""
         try:
-            # Fetch commits from the central repo
-            commits = self.fetch_commits()
-            
-            # Extract unique job IDs
-            unique_job_ids = self.extract_unique_job_ids(commits)
-            
-            # Print unique job IDs
-            bt.logging.info(f"Unique job_ids found: {unique_job_ids}")
-            
-            # Iterate over each job_id and score miners
-            for job_id in unique_job_ids:
-                bt.logging.info(f"Starting scoring for job_id: {job_id}")
-                
-                # Extract metrics for the current job_id
-                metrics_list = self.extract_metrics_by_job_id(commits, job_id)
-                
-                # Score miners based on extracted metrics
-                self.score_miners(metrics_list, job_id)
-                
-                bt.logging.info(f"Finished scoring for job_id: {job_id}")
-
+            commits = self.read_commits() 
+            job_groups = self.group_commits_by_job(commits)
+            self.evaluate_jobs(job_groups)
         except Exception as e:
             bt.logging.error(f"Error in forward: {str(e)}")
 
+    async def __aenter__(self):
+        # Perform any setup needed when entering the context
+        await self.setup()  # Assuming you have a setup method
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        # Perform any cleanup needed when exiting the context
+        await self.cleanup()  # Assuming you have a cleanup method
+
+    async def setup(self):
+        # Initialization logic here
+        pass
+
+    async def cleanup(self):
+        # Cleanup logic here
+        pass
+
 # Main execution
 if __name__ == "__main__":
-    with TrainingValidator() as validator:
-        while True:
-            bt.logging.info(f"Validator running... {time.time()}")
-            await validator.forward()  # Ensure async function is called properly
-            time.sleep(5)
+    async def main():
+        async with TrainingValidator() as validator:
+            while True:
+                bt.logging.info(f"Validator running... {time.time()}")
+                await validator.forward()  # Ensure async function is called properly
+                await asyncio.sleep(5)  # Use asyncio.sleep instead of time.sleep
+
+    asyncio.run(main())  # Run the main async function
