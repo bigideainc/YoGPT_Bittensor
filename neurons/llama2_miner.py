@@ -15,6 +15,7 @@ from trl import SFTTrainer
 import torch
 import uuid
 from utils.HFManager import commit_to_central_repo
+from utils.Helper import register_completed_job
 
 nest_asyncio.apply()
 
@@ -163,6 +164,8 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
             synapse.loss = final_loss
             synapse.model_hash = repo_name
+            total_training_time= train_end_time - train_start_time
+            register_completed_job(job_id,repo_url,final_loss,final_loss,total_training_time,miner_uid)
             # synapse.training_metrics = metrics
             # synapse.training_metrics['central_commit_url'] = central_commit_url
 
@@ -212,23 +215,23 @@ class Llama2TrainingMiner(BaseMinerNeuron):
         caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
         return float(self.metagraph.S[caller_uid])
 
-if __name__ == "__main__":
-    miner = Llama2TrainingMiner(
-        model_name='NousResearch/Llama-2-7b-chat-hf',
-        dataset_id='mlabonne/guanaco-llama2-1k',
-        epochs=1,
-        batch_size=8,
-        learning_rate=2e-5,
-        device='cuda',
-        hf_token="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",
-        central_repo="Tobius/yogpt_test",
-        job_id=str(uuid.uuid4()),
-    )
+# if __name__ == "__main__":
+#     miner = Llama2TrainingMiner(
+#         model_name='NousResearch/Llama-2-7b-chat-hf',
+#         dataset_id='mlabonne/guanaco-llama2-1k',
+#         epochs=1,
+#         batch_size=8,
+#         learning_rate=2e-5,
+#         device='cuda',
+#         hf_token="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",
+#         central_repo="Tobius/yogpt_test",
+#         job_id=str(uuid.uuid4()),
+#     )
     
-    async def main():
-        try:
-            await miner.run_training_loop()
-        except KeyboardInterrupt:
-            bt.logging.info("Miner stopped.")
+#     async def main():
+#         try:
+#             await miner.run_training_loop()
+#         except KeyboardInterrupt:
+#             bt.logging.info("Miner stopped.")
 
-    asyncio.run(main())
+#     asyncio.run(main())

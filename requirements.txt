@@ -16,3 +16,5 @@ trl
 bitsandbytes
 tensorboard
 sentencepiece
+aiohttp
+requests

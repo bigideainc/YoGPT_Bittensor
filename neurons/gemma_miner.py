@@ -16,13 +16,14 @@ from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
 from huggingface_hub import HfApi, login
 from utils.HFManager import commit_to_central_repo
+from utils.Helper import register_completed_job
 
 nest_asyncio.apply()
 
 class GemmaFineTuningMiner(BaseMinerNeuron):
-    def __init__(self, base_model: str = 'google/gemma-2b', dataset_id: str = 'Abirate/english_quotes', epochs: int = 3, batch_size: int = 4, learning_rate: float = 2e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
+    def __init__(self, model_name: str = 'google/gemma-2b', dataset_id: str = 'Abirate/english_quotes', epochs: int = 3, batch_size: int = 4, learning_rate: float = 2e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
         super().__init__()
-        self.base_model = base_model
+        self.base_model = model_name
         self.dataset_id = dataset_id
         self.epochs = epochs
         self.batch_size = int(batch_size)
@@ -123,6 +124,8 @@ class GemmaFineTuningMiner(BaseMinerNeuron):
 
             synapse.loss = final_loss
             synapse.model_hash = repo_name
+            total_training_time= train_end_time - train_start_time
+            register_completed_job(job_id,repo_url,final_loss,final_loss,total_training_time,miner_uid)
         except Exception as e:
             bt.logging.error(f"Error during training: {str(e)}")
             synapse.loss = None
@@ -168,23 +171,23 @@ class GemmaFineTuningMiner(BaseMinerNeuron):
         caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
         return float(self.metagraph.S[caller_uid])
 
-if __name__ == "__main__":
-    miner = GemmaFineTuningMiner(
-        base_model='google/gemma-2b',
-        dataset_id='Abirate/english_quotes', 
-        epochs=1, 
-        batch_size=4,  
-        learning_rate=2e-4,
-        device='cuda',
-        hf_token="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", 
-        central_repo="Tobius/yogpt_test",  
-        job_id=str(uuid.uuid4()),
-    )
+# if __name__ == "__main__":
+#     miner = GemmaFineTuningMiner(
+#         base_model='google/gemma-2b',
+#         dataset_id='Abirate/english_quotes', 
+#         epochs=1, 
+#         batch_size=4,  
+#         learning_rate=2e-4,
+#         device='cuda',
+#         hf_token="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", 
+#         central_repo="Tobius/yogpt_test",  
+#         job_id=str(uuid.uuid4()),
+#     )
     
-    async def main():
-        try:
-            await miner.run_training_loop()
-        except KeyboardInterrupt:
-            bt.logging.info("Miner stopped.")
+#     async def main():
+#         try:
+#             await miner.run_training_loop()
+#         except KeyboardInterrupt:
+#             bt.logging.info("Miner stopped.")
 
-    asyncio.run(main())
+#     asyncio.run(main())

@@ -1,6 +1,7 @@
 import typing
 import bittensor as bt
 from typing import List, Optional, Dict
+from pydantic import BaseModel, ConfigDict
 
 class TrainingProtocol(bt.Synapse):
     """Protocol for GPT model training in Bittensor network.
@@ -8,6 +9,9 @@ class TrainingProtocol(bt.Synapse):
     This class encapsulates the necessary parameters and response fields 
     for managing training requests and responses.
     """
+    model_config = ConfigDict(
+        protected_namespaces=()  
+    )
     model_name: str 
     batch_data: List[str]  
     training_params: Dict[str, Optional[float]]  

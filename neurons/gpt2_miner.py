@@ -10,14 +10,15 @@ from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
 from huggingface_hub import HfApi
 from utils.HFManager import commit_to_central_repo
+from utils.Helper import register_completed_job
 import uuid
 
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_type: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
+    def __init__(self, model_name: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
         super().__init__()
-        self.model_type = model_type
+        self.model_type = model_name
         self.epochs = epochs
         self.batch_size = int(batch_size)
         self.learning_rate = learning_rate
@@ -40,7 +41,7 @@ class TrainingMiner(BaseMinerNeuron):
             if 'text' not in self.dataset.column_names:
                 text_columns = [col for col in self.dataset.column_names if isinstance(self.dataset[0][col], str)]
                 if text_columns:
-                    self.dataset = self.dataset.rename_column(text_columns[0], 'text')
+                    self.daiohttpataset = self.dataset.rename_column(text_columns[0], 'text')
                 else:
                     raise ValueError("Dataset does not contain a suitable text column")
             
@@ -115,6 +116,8 @@ class TrainingMiner(BaseMinerNeuron):
 
             synapse.loss = final_loss
             synapse.model_hash = repo_name
+            total_training_time= train_end_time - train_start_time
+            register_completed_job(job_id,repo_url,final_loss,final_loss,total_training_time,miner_uid)
             # synapse.training_metrics = metrics
             # synapse.training_metrics['central_commit_url'] = central_commit_url
 
@@ -164,23 +167,25 @@ class TrainingMiner(BaseMinerNeuron):
         caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
         return float(self.metagraph.S[caller_uid])
 
-if __name__ == "__main__":
-    miner = TrainingMiner(
-        model_type='openai-community/gpt2',
-        dataset_id='iohadrubin/wikitext-103-raw-v1',
-        epochs=1,
-        batch_size=16,
-        learning_rate=5e-5,
-        device='cuda',      
-        hf_token="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",
-        central_repo="Tobius/yogpt_test",
-        job_id=str(uuid.uuid4()),
-    )
+# if __name__ == "__main__":
+#     miner = TrainingMiner(
+#         model_type='openai-community/gpt2',
+#         dataset_id='iohadrubin/wikitext-103-raw-v1',
+#         epochs=1,
+#         batch_size=16,
+#         learning_rate=5e-5,
+#         device='cuda',      
+#         hf_token="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",
+#         central_repo="Tobius/yogpt_test",
+#         job_id=str(uuid.uuid4()),
+#     )
     
-    async def main():
-        try:
-            await miner.run_training_loop()
-        except KeyboardInterrupt:
-            bt.logging.info("Miner stopped.")
+#     async def main():
+#         try:
+#             await miner.run_training_loop()
+#         except KeyboardInterrupt:
+#             bt.logging.info("Miner stopped.")
 
-    asyncio.run(main())
+#     asyncio.run(main())
+
+# [command] python3 neurons/run_miner.py --netuid 100 --subtensor.network test --wallet.name miner --wallet.hotkey default --model_type gpt2 --dataset_id iohadrubin/wikitext-103-raw-v1 --epochs 1  --job_id 4 --hf_token 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

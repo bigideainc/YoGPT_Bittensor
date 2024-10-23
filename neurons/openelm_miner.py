@@ -13,12 +13,12 @@ from template.base.miner import BaseMinerNeuron
 from template.protocol import TrainingProtocol
 from huggingface_hub import HfApi, login
 from utils.HFManager import commit_to_central_repo
-
+from utils.Helper import register_completed_job
 # Set up nest_asyncio to allow multiple async loops
 nest_asyncio.apply()
 
 class OpenELMTrainingMiner(BaseMinerNeuron):
-    def __init__(self, base_model: str = 'apple/OpenELM-270M', 
+    def __init__(self, model_name: str = 'apple/OpenELM-270M', 
                  dataset_id: str = 'g-ronimo/oasst2_top4k_en', 
                  epochs: int = 1, batch_size: int = 2, 
                  learning_rate: float = 5e-5, 
@@ -27,7 +27,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
                  job_id: str = str(uuid.uuid4()), 
                  central_repo: str = 'Tobius/yogpt_test'):
         super().__init__()
-        self.base_model = base_model
+        self.base_model = model_name
         self.dataset_id = dataset_id
         self.epochs = epochs
         self.batch_size = int(batch_size)
@@ -154,6 +154,8 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
             # Update synapse
             synapse.loss = final_loss
             synapse.model_hash = repo_url
+            total_training_time= train_end_time - train_start_time
+            register_completed_job(job_id,repo_url,final_loss,final_loss,total_training_time,miner_uid)
             # synapse.training_metrics = metrics
             # synapse.training_metrics['central_commit_url'] = central_commit_url
 
@@ -203,23 +205,23 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
         caller_uid = self.metagraph.hotkeys.index(synapse.dendrite.hotkey)
         return float(self.metagraph.S[caller_uid])
 
-if __name__ == "__main__":
-    miner = OpenELMTrainingMiner(
-        base_model='apple/OpenELM-270M',
-        dataset_id='g-ronimo/oasst2_top4k_en',  
-        epochs=1,
-        batch_size=2,
-        learning_rate=5e-5,
-        device='cuda',
-        hf_token="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",
-        job_id=str(uuid.uuid4()),
-        central_repo="Tobius/yogpt_test",
-    )
+# if __name__ == "__main__":
+#     miner = OpenELMTrainingMiner(
+#         base_model='apple/OpenELM-270M',
+#         dataset_id='g-ronimo/oasst2_top4k_en',  
+#         epochs=1,
+#         batch_size=2,
+#         learning_rate=5e-5,
+#         device='cuda',
+#         hf_token="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",
+#         job_id=str(uuid.uuid4()),
+#         central_repo="Tobius/yogpt_test",
+#     )
     
-    async def main():
-        try:
-            await miner.run_training_loop()
-        except KeyboardInterrupt:
-            bt.logging.info("Miner stopped.")
+#     async def main():
+#         try:
+#             await miner.run_training_loop()
+#         except KeyboardInterrupt:
+#             bt.logging.info("Miner stopped.")
 
-    asyncio.run(main())
+#     asyncio.run(main())
