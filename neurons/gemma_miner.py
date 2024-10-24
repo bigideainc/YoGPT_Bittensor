@@ -21,7 +21,7 @@ from utils.Helper import register_completed_job
 nest_asyncio.apply()
 
 class GemmaFineTuningMiner(BaseMinerNeuron):
-    def __init__(self, model_name: str = 'google/gemma-2b', dataset_id: str = 'Abirate/english_quotes', epochs: int = 3, batch_size: int = 4, learning_rate: float = 2e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
+    def __init__(self, model_name: str = 'google/gemma-2b', dataset_id: str = 'Abirate/english_quotes', epochs: int = 3, batch_size: int = 4, learning_rate: float = 2e-4, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = None):
         super().__init__()
         self.base_model = model_name
         self.dataset_id = dataset_id

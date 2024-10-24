@@ -28,7 +28,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
                  device: str = 'cuda', 
                  hf_token: str = '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', 
                  central_repo: str = 'Tobius/yogpt_test',
-                 job_id: str = str(uuid.uuid4()),
+                 job_id: str = None,
                  ):
         super().__init__()
         self.model_name = model_name

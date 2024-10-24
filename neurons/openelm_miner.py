@@ -24,7 +24,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
                  learning_rate: float = 5e-5, 
                  device: str = 'cuda', 
                  hf_token: str = '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', 
-                 job_id: str = str(uuid.uuid4()), 
+                 job_id: str = None, 
                  central_repo: str = 'Tobius/yogpt_test'):
         super().__init__()
         self.base_model = model_name
