@@ -17,17 +17,8 @@ load_dotenv()  # Load environment variables from .env file
 class TrainingValidator(BaseValidatorNeuron):
     def __init__(self, config=None, repo_name=None):
         super().__init__(config=config)
-        load_dotenv()
-        self.hf_token = os.getenv('HUGGING_FACE_TOKEN')
-        if not self.hf_token:
-            bt.logging.error("HUGGING_FACE_TOKEN not found in environment variables")
-        
-        self.central_repo = os.getenv('CENTRAL_REPO')  # Central repository URL
-        if not self.central_repo:
-            bt.logging.error("CENTRAL_REPO not found in environment variables")
         
         self.repo_name = repo_name
-        self.api = HfApi()
 
     def read_commits(self):
         """Read commits from the central Hugging Face repository."""
@@ -38,7 +29,7 @@ class TrainingValidator(BaseValidatorNeuron):
         """Group commits by job."""
         job_groups = {}
         for commit in commits:
-            job_id = commit.get("metrics", {}).get("job_id")
+            job_id = commit["metrics"]["job_id"]
             if job_id not in job_groups:
                 job_groups[job_id] = []
             job_groups[job_id].append(commit)
@@ -46,25 +37,98 @@ class TrainingValidator(BaseValidatorNeuron):
 
     def load_and_evaluate(self, job_groups):
         """Load and evaluate each job."""
+        
         for job_id, commits in job_groups.items():
-            metrics_list = self.extract_metrics_by_job_id(commits, job_id)
+            metrics_list = self.extract_metrics_by_job_id(job_id, commits)
             if metrics_list:
-                self.score_miners(metrics_list, job_id)
-                self.mark_job_as_done(job_id)
+                print(f"rewarding and scoring miners for jobid {job_id}")
+                results =self.score_miners(metrics_list)
+                for miner_uid ,score  in results['rewards'].items():
+                    self.update_scores(score, miner_uid)
+                # print(results['best_miner'])
+                # print(results['ranked_miners'])
+                # self.mark_job_as_done(job_id)
+    
+    def extract_metrics_by_job_id(self, job_id, commits):
+        # Initialize an empty list to store the results
+        results = []
+        
+        # Iterate over each commit in the commits list
+        for commit in commits:
+            # Check if the 'job_id' in the commit matches the input job_id
+            if commit['job_id'] == job_id:
+                # Extract the needed information
+                miner_uid = commit['miner_uid']
+                final_loss = commit['metrics']['final_loss']
+                model_repo = commit['model_repo']
+                
+                # Append the extracted data to the results list
+                results.append({
+                    'miner_uid': miner_uid,
+                    'final_loss': final_loss,
+                    'model_repo': model_repo
+                })
+        return results
 
-    def verify_losses(self, metrics_list):
-        """Assess and verify the losses for each task."""
-        for metric in metrics_list:
-            if not self.is_loss_verified(metric):
-                continue  # Skip if loss is not verified
-            self.update_scores(torch.tensor([1.0]), [metric["miner_uid"]])
+    def score_miners(self, metrics_list):
+        """
+        Scores miners based on their final_loss, rewards the best miner, and ranks all miners.
 
-    def reward_best_miner(self, job_id):
-        """Reward the miner with the best performance for each job."""
-        metrics_list = self.get_metrics_for_job(job_id)
-        if metrics_list:
-            lowest_loss_commit = min(metrics_list, key=lambda x: x["final_loss"])
-            self.update_scores(torch.tensor([1.0]), [lowest_loss_commit["miner_uid"]])
+        Parameters:
+            metrics_list (list): A list of dictionaries containing 'miner_uid', 'final_loss', and 'model_repo'.
+
+        Returns:
+            dict: A dictionary containing:
+                - 'ranked_miners': List of miners with their ranking positions, 'miner_uid', and 'final_loss'.
+                - 'best_miner': Details of the best miner with 'miner_uid', 'final_loss', and 'model_repo'.
+                - 'rewards': A dictionary mapping 'miner_uid' to their reward (1 token for the best miner).
+        """
+        # Sort the miners based on their final_loss in ascending order
+        sorted_miners = sorted(metrics_list, key=lambda x: x['final_loss'])
+        
+        # Assign positions (rankings) to the miners
+        ranked_miners = []
+        for position, miner in enumerate(sorted_miners, start=1):
+            ranked_miners.append({
+                'position': position,
+                'miner_uid': miner['miner_uid'],
+                'final_loss': miner['final_loss']
+            })
+        
+        # Identify the best miner (the one with the lowest final_loss)
+        best_miner = sorted_miners[0]
+        
+        # Award one token to the best miner
+        rewards = {best_miner['miner_uid']: 1.0}
+        
+        # Extract details of the best miner
+        best_miner_info = {
+            'miner_uid': best_miner['miner_uid'],
+            'final_loss': best_miner['final_loss'],
+            'model_repo': best_miner['model_repo']
+        }
+        
+        # Return the results
+        return {
+            'ranked_miners': ranked_miners,
+            'best_miner': best_miner_info,
+            'rewards': rewards
+        }
+
+
+    # def verify_losses(self, metrics_list):
+    #     """Assess and verify the losses for each task."""
+    #     for metric in metrics_list:
+    #         if not self.is_loss_verified(metric):
+    #             continue  # Skip if loss is not verified
+    #         self.update_scores(torch.tensor([1.0]), [metric["miner_uid"]])
+
+    # def reward_best_miner(self, job_id):
+    #     """Reward the miner with the best performance for each job."""
+    #     metrics_list = self.get_metrics_for_job(job_id)
+    #     if metrics_list:
+    #         lowest_loss_commit = min(metrics_list, key=lambda x: x["final_loss"])
+    #         self.update_scores(torch.tensor([1.0]), [lowest_loss_commit["miner_uid"]])
 
     def mark_job_as_done(self, job_id):
         """Mark the evaluated job as complete."""
@@ -75,19 +139,15 @@ class TrainingValidator(BaseValidatorNeuron):
         unscored_jobs = {job_id: commits for job_id, commits in job_groups.items() if not self.is_job_scored(job_id)}
         return unscored_jobs
 
-    def evaluate_jobs(self, job_groups):
-        """Main method to evaluate jobs."""
-        self.load_and_evaluate(job_groups)
 
     async def forward(self):
         """Main execution method."""
         try:
             logging.info("Fetching commits...")
-            commits = self.read_commits()  # This now uses the updated read_commits method
+            commits = self.read_commits()
+            logging.info("Grouping jobs ...")
             job_groups = self.group_commits(commits)
-            print(job_groups)
-
-            # self.evaluate_jobs(job_groups)
+            self.load_and_evaluate(job_groups)
         except Exception as e:
             logging.error(f"Error in forward: {str(e)}")
 
@@ -105,25 +165,6 @@ class TrainingValidator(BaseValidatorNeuron):
     async def cleanup(self):
         # Cleanup logic here
         pass
-
-    def group_commits_by_job(self, commits):
-        """Group commits by job."""
-        job_groups = {}
-        for commit in commits:
-            job_id = commit.get("metrics", {}).get("job_id")
-            if job_id not in job_groups:
-                job_groups[job_id] = []
-            job_groups[job_id].append(commit)
-        return job_groups
-
-    def fetch_commits(self):
-        """Fetch commits from the Hugging Face Hub repository."""
-        try:
-            commits = self.api.list_commits(repo_id=self.repo_name)
-            return commits
-        except Exception as e:
-            logging.error(f"Failed to fetch commits: {str(e)}")
-            return []
 
 # Main execution
 if __name__ == "__main__":

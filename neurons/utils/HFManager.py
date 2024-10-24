@@ -60,17 +60,9 @@ def commit_to_central_repo(hf_token: str, central_repo: str, model_repo: str, me
 def fetch_training_metrics_commits(repo_id: str) -> List[Dict]:
     try:
         token = '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'
-        # Initialize the Hugging Face API client
         api = HfApi(token=token)
-
-        # Construct the model repo URL
         model_repo_url = f"https://huggingface.co/{repo_id}"
-
-        # Fetch all commits for the repository
-        commits = api.list_repo_commits(
-            repo_id=repo_id,
-            token=token
-        )
+        commits = api.list_repo_commits(repo_id=repo_id, token=token)
 
         training_metrics = []
         processed_commits = 0
@@ -79,43 +71,35 @@ def fetch_training_metrics_commits(repo_id: str) -> List[Dict]:
 
         for commit in commits:
             try:
-                # Get the list of files in this commit
-                files = api.list_repo_tree(
-                    repo_id=repo_id,
-                    revision=commit.commit_id,
-                    token=token
-                )
-
-                # Look for JSON files
+                files = api.list_repo_tree(repo_id=repo_id, revision=commit.commit_id, token=token)
                 json_files = [f for f in files if f.path.endswith('.json')]
 
                 for json_file in json_files:
                     try:
-                        # Download the file at the specific commit
-                        local_path = hf_hub_download(
-                            repo_id=repo_id,
-                            filename=json_file.path,
-                            revision=commit.commit_id,
-                            token=token
-                        )
+                        local_path = hf_hub_download(repo_id=repo_id, filename=json_file.path, 
+                                                      revision=commit.commit_id, token=token)
 
-                        # Read and parse the JSON file content
                         with open(local_path, 'r') as f:
                             content = f.read()
                             metrics_data = json.loads(content)
 
                         # Ensure 'metrics' and 'miner_uid' exist in the JSON data
-                        if isinstance(metrics_data, dict) and "metrics" in metrics_data and "miner_uid" in metrics_data:
-                            # Create metrics entry
-                            metrics_entry = {
-                                "model_repo": model_repo_url,
-                                "metrics": metrics_data["metrics"],
-                                "miner_uid": metrics_data["miner_uid"],
-                                "timestamp": metrics_data.get("timestamp", "unknown")
-                            }
+                        if isinstance(metrics_data, dict) and "metrics" in metrics_data:
+                            miner_uid = metrics_data.get("miner_uid")
+                            job_id = metrics_data["metrics"].get("job_id") if "metrics" in metrics_data else None
 
-                            training_metrics.append(metrics_entry)
-                            processed_commits += 1
+                            # Create metrics entry only if miner_uid is present and job_id is found in metrics
+                            if miner_uid and job_id:
+                                metrics_entry = {
+                                    "model_repo": metrics_data.get("model_repo", "unknown"),
+                                    "metrics": metrics_data["metrics"],
+                                    "miner_uid": miner_uid,
+                                    "job_id": job_id,
+                                    "timestamp": metrics_data.get("timestamp", "unknown")
+                                }
+
+                                training_metrics.append(metrics_entry)
+                                processed_commits += 1
 
                     except json.JSONDecodeError:
                         print(f"Could not decode JSON in file: {json_file.path}")
@@ -125,9 +109,13 @@ def fetch_training_metrics_commits(repo_id: str) -> List[Dict]:
                 print(f"Error processing commit {commit.commit_id}: {str(e)}")
                 continue
 
+        # Filter out entries that have both miner_uid and job_id
+        filtered_metrics = [entry for entry in training_metrics if entry.get('miner_uid') and entry['metrics'].get('job_id')]
+
         print(f"Successfully processed {processed_commits} commits with valid metrics")
-        return training_metrics
+        return filtered_metrics
 
     except Exception as e:
         print(f"Error fetching commits: {str(e)}")
         return []
+
