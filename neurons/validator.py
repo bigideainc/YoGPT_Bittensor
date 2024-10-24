@@ -32,7 +32,6 @@ class TrainingValidator(BaseValidatorNeuron):
     def read_commits(self):
         """Read commits from the central Hugging Face repository."""
         commits = fetch_training_metrics_commits(repo_id=self.repo_name)
-        print(commits)
         return commits
 
     def group_commits(self, commits):
@@ -85,8 +84,9 @@ class TrainingValidator(BaseValidatorNeuron):
         try:
             logging.info("Fetching commits...")
             commits = self.read_commits()  # This now uses the updated read_commits method
-            print(commits)
-            # job_groups = self.group_commits(commits)
+            job_groups = self.group_commits(commits)
+            print(job_groups)
+
             # self.evaluate_jobs(job_groups)
         except Exception as e:
             logging.error(f"Error in forward: {str(e)}")
