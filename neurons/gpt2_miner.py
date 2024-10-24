@@ -16,7 +16,7 @@ import uuid
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_name: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(uuid.uuid4())):
+    def __init__(self, model_name: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(job_id)):
         super().__init__()
         self.model_type = model_name
         self.epochs = epochs
