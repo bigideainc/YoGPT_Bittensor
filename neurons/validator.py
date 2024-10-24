@@ -6,24 +6,72 @@ import bittensor as bt
 from template.base.validator import BaseValidatorNeuron
 from template.protocol import TrainingProtocol
 import asyncio
+import os
+from dotenv import load_dotenv
+import logging
+from huggingface_hub import HfApi
+from typing import List, Dict, Optional
+
+load_dotenv()  # Load environment variables from .env file
 
 class TrainingValidator(BaseValidatorNeuron):
-    def __init__(self, config=None, central_repo: str = "Tobius/yogpt_test"):
+    def __init__(self, config=None, repo_name=None):
         super().__init__(config=config)
-        self.central_repo = central_repo  # Central repository URL
+        
+        # Load environment variables
+        load_dotenv()
+        
+        # Get the Hugging Face token from the environment variable
+        self.hf_token = os.getenv('HUGGING_FACE_TOKEN')
+        if not self.hf_token:
+            bt.logging.error("HUGGING_FACE_TOKEN not found in environment variables")
+        
+        self.central_repo = os.getenv('CENTRAL_REPO')  # Central repository URL
+        if not self.central_repo:
+            bt.logging.error("CENTRAL_REPO not found in environment variables")
+        
+        self.repo_name = repo_name
+        self.api = HfApi()
 
-    def fetch_commits_from_repository(self):
-        """Fetch commits from the central repository."""
-        response = requests.get(f"https://api.github.com/repos/{self.central_repo}/commits")
-        if response.status_code == 200:
-            return response.json()  # Assuming the response is a list of commits
-        else:
-            bt.logging.error(f"Failed to fetch commits: {response.status_code}")
-            return []
+    def fetch_training_metrics_commits(self, repo_id: str, token: Optional[str] = None) -> List[Dict]:
+        """
+        Fetch commits from a Hugging Face repository that contain training metrics JSON files
+        and have 'miner_uid' in the metrics.
+        
+        Args:
+            repo_id (str): The repository ID in format 'username/repository'
+            token (str, optional): HuggingFace API token for private repositories.
+            
+        Returns:
+            List[Dict]: List of commits containing valid training metrics.
+        """
+        commits_with_metrics = []
+
+        try:
+            # Fetch the repository files
+            files = self.api.list_repo_files(repo_id=repo_id, token=token)
+            
+            # Check if 'metrics.json' exists in the repository
+            if 'metrics.json' in files:
+                # Fetch the metrics file
+                metrics_file = self.api.download_file('metrics.json', repo_id=repo_id, token=token)
+                metrics_data = json.loads(metrics_file)
+
+                # Check for 'miner_uid' in the metrics
+                if 'miner_uid' in metrics_data:
+                    commits_with_metrics.append({
+                        "commit_id": "latest",  # Placeholder for commit ID
+                        "miner_uid": metrics_data['miner_uid'],
+                        "metrics": metrics_data
+                    })
+        except Exception as e:
+            logging.error(f"Failed to fetch training metrics commits: {str(e)}")
+
+        return commits_with_metrics
 
     def read_commits(self):
-        """Read commits from the central repository."""
-        commits = self.fetch_commits_from_repository()  # Ensure this matches the method name
+        """Read commits from the central Hugging Face repository."""
+        commits = self.fetch_training_metrics_commits(repo_id=self.repo_name, token=self.hf_token)  # Updated method call
         return commits
 
     def group_commits(self, commits):
@@ -67,22 +115,19 @@ class TrainingValidator(BaseValidatorNeuron):
         unscored_jobs = {job_id: commits for job_id, commits in job_groups.items() if not self.is_job_scored(job_id)}
         return unscored_jobs
 
-    def evaluate_jobs(self):
+    def evaluate_jobs(self, job_groups):
         """Main method to evaluate jobs."""
-        commits = self.read_commits()
-        job_groups = self.group_commits(commits)
-        unscored_jobs = self.filter_jobs(job_groups)
-        self.load_and_evaluate(unscored_jobs)
+        self.load_and_evaluate(job_groups)
 
     async def forward(self):
         """Main execution method."""
         try:
-            bt.logging.info("Fetching commits...")
-            commits = self.read_commits() 
-            job_groups = self.group_commits_by_job(commits)  # Ensure this method is defined
+            logging.info("Fetching commits...")
+            commits = self.read_commits()  # This now uses the updated read_commits method
+            job_groups = self.group_commits(commits)
             self.evaluate_jobs(job_groups)
         except Exception as e:
-            bt.logging.error(f"Error in forward: {str(e)}")
+            logging.error(f"Error in forward: {str(e)}")
 
     async def __aenter__(self):
         await self.setup()  # Assuming you have a setup method
@@ -109,10 +154,19 @@ class TrainingValidator(BaseValidatorNeuron):
             job_groups[job_id].append(commit)
         return job_groups
 
+    def fetch_commits(self):
+        """Fetch commits from the Hugging Face Hub repository."""
+        try:
+            commits = self.api.list_commits(repo_id=self.repo_name)
+            return commits
+        except Exception as e:
+            logging.error(f"Failed to fetch commits: {str(e)}")
+            return []
+
 # Main execution
 if __name__ == "__main__":
     async def main():
-        async with TrainingValidator() as validator:
+        async with TrainingValidator(repo_name="Tobius/yogpt_test") as validator:
             while True:
                 bt.logging.info(f"Validator running... {time.time()}")
                 await validator.forward()  # Ensure async function is called properly
