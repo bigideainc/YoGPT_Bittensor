@@ -18,4 +18,4 @@ tensorboard
 sentencepiece
 aiohttp
 requests
-python-dotenv
+python-dotenv==0.19.2
