@@ -26,7 +26,7 @@ class TrainingMiner(BaseMinerNeuron):
         self.dataset_id = dataset_id
         self.hf_token = hf_token
         self.central_repo = central_repo
-        self.job_id=job_id
+        self.job_id= job_id
         self.tokenizer = GPT2Tokenizer.from_pretrained(self.model_type, pad_token="")
         self.model = GPT2LMHeadModel.from_pretrained(self.model_type, token=self.hf_token).to(self.device)
         self.data_collator = DataCollatorForLanguageModeling(self.tokenizer, mlm=False)
@@ -34,6 +34,8 @@ class TrainingMiner(BaseMinerNeuron):
         self.initialize_dataset()
         self.setup_trainer()
         self.hf_api = HfApi(token=self.hf_token)
+
+        print(job_id)
 
     def initialize_dataset(self):
         try:
@@ -95,7 +97,7 @@ class TrainingMiner(BaseMinerNeuron):
             final_loss = train_result.training_loss
             repo_name = f"finetuned-gpt2-{self.job_id}-{int(time.time())}"
             repo_url = self.hf_api.create_repo(repo_name, private=True)
-            self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
+            self.model.push_to_hub(repo_name, token=self.hf_token)
 
             miner_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
             metrics = {

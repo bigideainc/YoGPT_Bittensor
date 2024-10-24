@@ -18,3 +18,4 @@ tensorboard
 sentencepiece
 aiohttp
 requests
+python-dotenv
