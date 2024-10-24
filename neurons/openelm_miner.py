@@ -139,7 +139,8 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
                 'final_loss': final_loss,
                 'training_time': train_end_time - train_start_time,
                 'model_repo': repo_url,
-                'job_id':self.job_id
+                'job_id':self.job_id,
+                'datasetid':self.dataset_id,
             }
 
             miner_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
