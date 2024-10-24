@@ -16,7 +16,7 @@ import uuid
 nest_asyncio.apply()
 
 class TrainingMiner(BaseMinerNeuron):
-    def __init__(self, model_name: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = str(job_id)):
+    def __init__(self, model_name: str = 'openai-community/gpt2', dataset_id: str = 'iohadrubin/wikitext-103-raw-v1', epochs: int = 1, batch_size: int = 16, learning_rate: float = 5e-5, device: str = 'cuda', hf_token: str = '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', central_repo: str = 'Tobius/yogpt_test',job_id: str = None):
         super().__init__()
         self.model_type = model_name
         self.epochs = epochs
@@ -26,7 +26,7 @@ class TrainingMiner(BaseMinerNeuron):
         self.dataset_id = dataset_id
         self.hf_token = hf_token
         self.central_repo = central_repo
-        self.job_id= job_id
+        self.job_id = job_id
         self.tokenizer = GPT2Tokenizer.from_pretrained(self.model_type, pad_token="")
         self.model = GPT2LMHeadModel.from_pretrained(self.model_type, token=self.hf_token).to(self.device)
         self.data_collator = DataCollatorForLanguageModeling(self.tokenizer, mlm=False)
