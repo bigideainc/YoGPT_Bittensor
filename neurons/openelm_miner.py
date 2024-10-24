@@ -155,7 +155,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
             synapse.loss = final_loss
             synapse.model_hash = repo_url
             total_training_time= train_end_time - train_start_time
-            register_completed_job(job_id,repo_url,final_loss,final_loss,total_training_time,miner_uid)
+            # register_completed_job(job_id,repo_url,final_loss,final_loss,total_training_time,miner_uid)
             # synapse.training_metrics = metrics
             # synapse.training_metrics['central_commit_url'] = central_commit_url
 

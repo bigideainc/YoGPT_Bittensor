@@ -6,6 +6,7 @@ import bittensor as bt
 from template.base.validator import BaseValidatorNeuron
 from template.protocol import TrainingProtocol
 import asyncio
+import utils.HFManager import fetch_training_metrics_commits
 
 class TrainingValidator(BaseValidatorNeuron):
     def __init__(self, config=None, central_repo: str = "Tobius/yogpt_test"):
@@ -20,6 +21,7 @@ class TrainingValidator(BaseValidatorNeuron):
         else:
             bt.logging.error(f"Failed to fetch commits: {response.status_code}")
             return []
+    
 
     def read_commits(self):
         """Read commits from the central repository."""
@@ -79,8 +81,9 @@ class TrainingValidator(BaseValidatorNeuron):
         try:
             bt.logging.info("Fetching commits...")
             commits = self.read_commits() 
-            job_groups = self.group_commits_by_job(commits)  # Ensure this method is defined
-            self.evaluate_jobs(job_groups)
+            print(commits)
+            # job_groups = self.group_commits_by_job(commits)  # Ensure this method is defined
+            # self.evaluate_jobs(job_groups)
         except Exception as e:
             bt.logging.error(f"Error in forward: {str(e)}")
 

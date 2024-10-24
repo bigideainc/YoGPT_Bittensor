@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 BASE_URL = os.getenv("BASE_URL")
 TOKEN = os.getenv("TOKEN")
-
-                
+             
 async def update_job_status(job_id, status):
     url = f"{BASE_URL}/update-status/{job_id}"
     async with aiohttp.ClientSession() as session:
