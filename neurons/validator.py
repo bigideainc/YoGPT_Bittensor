@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import logging
 from huggingface_hub import HfApi
 from typing import List, Dict, Optional
-
+from utils.HFManager import fetch_training_metrics_commits
 load_dotenv()  # Load environment variables from .env file
 
 class TrainingValidator(BaseValidatorNeuron):
@@ -29,45 +29,10 @@ class TrainingValidator(BaseValidatorNeuron):
         self.repo_name = repo_name
         self.api = HfApi()
 
-    def fetch_training_metrics_commits(self, repo_id: str, token: Optional[str] = None) -> List[Dict]:
-        """
-        Fetch commits from a Hugging Face repository that contain training metrics JSON files
-        and have 'miner_uid' in the metrics.
-        
-        Args:
-            repo_id (str): The repository ID in format 'username/repository'
-            token (str, optional): HuggingFace API token for private repositories.
-            
-        Returns:
-            List[Dict]: List of commits containing valid training metrics.
-        """
-        commits_with_metrics = []
-
-        try:
-            # Fetch the repository files
-            files = self.api.list_repo_files(repo_id=repo_id, token=token)
-            
-            # Check if 'metrics.json' exists in the repository
-            if 'metrics.json' in files:
-                # Fetch the metrics file
-                metrics_file = self.api.download_file('metrics.json', repo_id=repo_id, token=token)
-                metrics_data = json.loads(metrics_file)
-
-                # Check for 'miner_uid' in the metrics
-                if 'miner_uid' in metrics_data:
-                    commits_with_metrics.append({
-                        "commit_id": "latest",  # Placeholder for commit ID
-                        "miner_uid": metrics_data['miner_uid'],
-                        "metrics": metrics_data
-                    })
-        except Exception as e:
-            logging.error(f"Failed to fetch training metrics commits: {str(e)}")
-
-        return commits_with_metrics
-
     def read_commits(self):
         """Read commits from the central Hugging Face repository."""
-        commits = self.fetch_training_metrics_commits(repo_id=self.repo_name, token=self.hf_token)  # Updated method call
+        commits = fetch_training_metrics_commits(repo_id=self.repo_name)
+        print(commits)
         return commits
 
     def group_commits(self, commits):
