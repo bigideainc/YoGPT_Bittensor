@@ -10,13 +10,20 @@ import asyncio
 class TrainingValidator(BaseValidatorNeuron):
     def __init__(self, config=None, central_repo: str = "Tobius/yogpt_test"):
         super().__init__(config=config)
-        
         self.central_repo = central_repo  # Central repository URL
+
+    def fetch_commits_from_repository(self):
+        """Fetch commits from the central repository."""
+        response = requests.get(f"https://api.github.com/repos/{self.central_repo}/commits")
+        if response.status_code == 200:
+            return response.json()  # Assuming the response is a list of commits
+        else:
+            bt.logging.error(f"Failed to fetch commits: {response.status_code}")
+            return []
 
     def read_commits(self):
         """Read commits from the central repository."""
-        # Implementation to read commits from the repository
-        commits = self.fetch_commits_from_repository()
+        commits = self.fetch_commits_from_repository()  # Ensure this matches the method name
         return commits
 
     def group_commits(self, commits):
@@ -39,7 +46,6 @@ class TrainingValidator(BaseValidatorNeuron):
 
     def verify_losses(self, metrics_list):
         """Assess and verify the losses for each task."""
-        # Implementation to verify losses
         for metric in metrics_list:
             if not self.is_loss_verified(metric):
                 continue  # Skip if loss is not verified
@@ -54,7 +60,6 @@ class TrainingValidator(BaseValidatorNeuron):
 
     def mark_job_as_done(self, job_id):
         """Mark the evaluated job as complete."""
-        # Implementation to mark the job as done
         self.update_job_status(job_id, status="done")
 
     def filter_jobs(self, job_groups):
@@ -72,19 +77,18 @@ class TrainingValidator(BaseValidatorNeuron):
     async def forward(self):
         """Main execution method."""
         try:
+            bt.logging.info("Fetching commits...")
             commits = self.read_commits() 
-            job_groups = self.group_commits_by_job(commits)
+            job_groups = self.group_commits_by_job(commits)  # Ensure this method is defined
             self.evaluate_jobs(job_groups)
         except Exception as e:
             bt.logging.error(f"Error in forward: {str(e)}")
 
     async def __aenter__(self):
-        # Perform any setup needed when entering the context
         await self.setup()  # Assuming you have a setup method
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        # Perform any cleanup needed when exiting the context
         await self.cleanup()  # Assuming you have a cleanup method
 
     async def setup(self):
@@ -94,6 +98,16 @@ class TrainingValidator(BaseValidatorNeuron):
     async def cleanup(self):
         # Cleanup logic here
         pass
+
+    def group_commits_by_job(self, commits):
+        """Group commits by job."""
+        job_groups = {}
+        for commit in commits:
+            job_id = commit.get("metrics", {}).get("job_id")
+            if job_id not in job_groups:
+                job_groups[job_id] = []
+            job_groups[job_id].append(commit)
+        return job_groups
 
 # Main execution
 if __name__ == "__main__":
