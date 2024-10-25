@@ -142,7 +142,7 @@ class Llama2TrainingMiner(BaseMinerNeuron):
 
             final_loss = train_result.training_loss
             repo_name = f"finetuned-llama2-{self.job_id}-{int(time.time())}"
-            repo_url = self.hf_api.create_repo(repo_name, private=True)
+            repo_url = self.hf_api.create_repo(repo_name, private=False)
             self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
 
             miner_uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)

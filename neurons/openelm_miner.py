@@ -129,7 +129,7 @@ class OpenELMTrainingMiner(BaseMinerNeuron):
 
             # Upload to Hugging Face
             repo_name = f"openelm-{int(time.time())}"
-            repo_url = self.hf_api.create_repo(repo_name, private=True)
+            repo_url = self.hf_api.create_repo(repo_name, private=False)
             self.model.push_to_hub(repo_name, use_auth_token=self.hf_token)
 
             # Collect metrics
