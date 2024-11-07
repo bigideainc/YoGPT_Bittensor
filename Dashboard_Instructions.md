@@ -376,5 +376,3 @@ backgroundColor = "#0E1117"
 secondaryBackgroundColor = "#262730"
 ```
 ```
-
-Feel free to copy and paste this Markdown content into your file!
