@@ -1,6 +1,3 @@
-Sure! Here’s the content formatted in Markdown for you to paste into your file:
-
-```markdown
 # Instructions for Setting Up and Running the YoGPT Bittensor Dashboard
 
 This document provides step-by-step instructions for setting up, running, and troubleshooting the YoGPT Bittensor Dashboard. Follow these steps to ensure a smooth experience.
