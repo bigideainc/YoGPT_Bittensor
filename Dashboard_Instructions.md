@@ -7,10 +7,11 @@ This document provides step-by-step instructions for setting up, running, and tr
 1. [Prerequisites](#prerequisites)
 2. [Clone the Repository](#clone-the-repository)
 3. [Set Up the Environment](#set-up-the-environment)
-4. [Run the Dashboard](#run-the-dashboard)
-5. [Access the Dashboard](#access-the-dashboard)
-6. [Troubleshooting](#troubleshooting)
-7. [Updating and Committing Changes](#updating-and-committing-changes)
+4. [Run the Validator](#run-the-validator)
+5. [Run the Dashboard](#run-the-dashboard)
+6. [Access the Dashboard](#access-the-dashboard)
+7. [Troubleshooting](#troubleshooting)
+8. [Updating and Committing Changes](#updating-and-committing-changes)
 
 ## Prerequisites
 
@@ -64,6 +65,34 @@ This document provides step-by-step instructions for setting up, running, and tr
    ```bash
    pip install -r requirements.txt
    ```
+
+## Run the Validator
+
+1. **First, run the validator to start and keep the WebSocket server running**:
+
+   ```bash
+   python3 neurons/validator.py --netuid 100 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug
+   ```
+
+   **Running as a module**:
+
+   ```bash
+   python3 -m neurons.validator --netuid 100 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug
+   ```
+
+2. **Secondly, run the Flask app**:
+
+   ```bash
+   python dashboard/app.py
+   ```
+
+3. **Third, run the Streamlit app**:
+
+   ```bash
+   streamlit run main.py
+   ```
+
+   Access it at: [http://localhost:5000](http://localhost:5000)
 
 ## Run the Dashboard
 
@@ -374,5 +403,9 @@ base = "dark"
 primaryColor = "#9146FF"
 backgroundColor = "#0E1117"
 secondaryBackgroundColor = "#262730"
+<<<<<<< HEAD
+```
+=======
 ```
 ```
+>>>>>>> 569886ea8950f12bab31df00e6357f79f8ceebaa
