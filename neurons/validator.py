@@ -12,6 +12,7 @@ import logging
 from huggingface_hub import HfApi
 from typing import List, Dict, Optional
 from neurons.utils.HFManager import fetch_training_metrics_commits
+import websockets  # Import websockets for the server
 import sys
 
 # Add the parent directory to the Python path
@@ -155,10 +156,39 @@ class TrainingValidator(BaseValidatorNeuron):
         # Cleanup logic here
         pass
 
+    async def stream_metrics(self, websocket):
+        """Stream metrics to the WebSocket client."""
+        try:
+            while True:
+                commits = self.read_commits()  # Fetch the latest commits
+                job_groups = self.group_commits(commits)  # Group commits by job
+                metrics_data = []
+                for job_id, commits in job_groups.items():
+                    metrics_data.extend(self.extract_metrics_by_job_id(job_id, commits))  # Extract metrics
+                
+                # Send metrics data to the WebSocket client
+                await websocket.send(json.dumps(metrics_data))  
+                await asyncio.sleep(5)  # Wait for 5 seconds before sending the next update
+        except websockets.exceptions.ConnectionClosed as e:
+            logging.info(f"WebSocket connection closed: {e}")
+        except Exception as e:
+            logging.error(f"Error in stream_metrics: {str(e)}")
+
+    async def websocket_server(self, websocket, path):
+        """Handle incoming WebSocket connections."""
+        await self.stream_metrics(websocket)  # Start streaming metrics
+
+    async def start_websocket_server(self):
+        """Start the WebSocket server."""
+        server = await websockets.serve(self.websocket_server, "localhost", 8765)  # Start server on port 8765
+        await server.wait_closed()  # Keep the server running
+
 # Main execution
 if __name__ == "__main__":
     async def main():
         async with TrainingValidator(repo_name="Tobius/yogpt_test") as validator:
+            # Start the WebSocket server
+            await validator.start_websocket_server()
             while True:
                 bt.logging.info(f"Validator running... {time.time()}")
                 await validator.forward()  # Ensure async function is called properly
