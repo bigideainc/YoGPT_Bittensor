@@ -1,14 +1,19 @@
-
+---
 title: "Getting Started with A9 Labs Bittensor Subnet for Fine-tuning LLMs"
 author: "A9 Labs"
-date: "`r format(Sys.Date(), '%B %d, %Y')`"
+date: "November 21, 2024"
 output:
   html_document:
+    theme: default
+    highlight: tango
     code_folding: hide
     toc: true
     toc_depth: 3
-    toc_float: true
-
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+---
 # Introduction
 
 A9 Labs Bittensor subnet is designed for fine-tuning large language models (LLMs) on custom datasets, creating optimized LLMs. Registered miners on this subnet compete by training models on specific datasets. The best-performing miner is rewarded using an incentive mechanism, ensuring high-quality contributions.
