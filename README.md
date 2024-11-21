@@ -1,15 +1,13 @@
 
----
 title: "Getting Started with A9 Labs Bittensor Subnet for Fine-tuning LLMs"
 author: "A9 Labs"
-date: "`r Sys.Date()`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   html_document:
     code_folding: hide
     toc: true
     toc_depth: 3
     toc_float: true
----
 
 # Introduction
 
